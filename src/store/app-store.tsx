@@ -311,6 +311,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetData: AppContextValue["resetData"] = useCallback(() => {
+    // Wipe tasks & sessions; keep preferences. Fresh starter tasks remain.
     setState((s) => {
       if (!s) return s;
       return {
@@ -322,6 +323,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadSampleData: AppContextValue["loadSampleData"] = useCallback(() => {
+    // Dev/test-only: inject rich synthetic history for exercising analytics.
     setState((s) => {
       if (!s) return s;
       return { ...s, ...buildSampleData() };
