@@ -1,0 +1,15 @@
+{
+  "name": "Pulse — Personal Productivity OS",
+  "short_name": "Pulse",
+  "description": "A premium personal productivity operating system: dashboard, tasks, focus timer, goals and analytics.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#061B14",
+  "theme_color": "#061B14",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
