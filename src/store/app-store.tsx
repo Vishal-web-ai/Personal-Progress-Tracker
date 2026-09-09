@@ -13,6 +13,7 @@ import type { Task, TaskBucket, WorkSession } from "@/types";
 import { INITIAL_TASKS, buildSeedSessions } from "@/data/initial";
 import { buildSampleData } from "@/data/sample";
 import { dayKey, dayKeyFor } from "@/lib/time";
+import { readSnapshot, writeSnapshot } from "@/lib/db";
 
 interface AppSettings {
   userName: string;
@@ -84,43 +85,105 @@ function rolloverTasks(tasks: Task[], today: string = dayKey(new Date())): Task[
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-function loadState(): AppState {
-  if (typeof window === "undefined") {
-    return { tasks: INITIAL_TASKS, sessions: [], settings: DEFAULT_SETTINGS };
-  }
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as AppState;
-      return {
-        tasks: (parsed.tasks ?? []).map((t) => migrateTask(t as unknown as Record<string, unknown>)),
-        sessions: parsed.sessions ?? [],
-        settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) },
-      };
-    }
-  } catch {
-    // ignore corrupt state
-  }
+function decodeState(raw: string): AppState {
+  const parsed = JSON.parse(raw) as AppState;
+  return {
+    tasks: (parsed.tasks ?? []).map((t) => migrateTask(t as unknown as Record<string, unknown>)),
+    sessions: parsed.sessions ?? [],
+    settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) },
+  };
+}
+
+function defaultSeed(): AppState {
   return { tasks: INITIAL_TASKS, sessions: buildSeedSessions(), settings: DEFAULT_SETTINGS };
 }
 
+function readLegacyLocalState(): AppState | null {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return decodeState(raw);
+  } catch {
+    return null;
+  }
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>(() => {
-    const loaded = loadState();
-    return { ...loaded, tasks: rolloverTasks(loaded.tasks) };
-  });
-  const hydrated = useRef(false);
+  const [state, setState] = useState<AppState | null>(null);
 
   useEffect(() => {
-    if (!hydrated.current) {
-      hydrated.current = true;
-      return;
-    }
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // storage full/blocked
-    }
+    let cancelled = false;
+    void (async () => {
+      let loaded: AppState | null = null;
+      try {
+        const db = await readSnapshot();
+        if (db) {
+          loaded = {
+            tasks: db.tasks.map((t) => migrateTask(t as unknown as Record<string, unknown>)),
+            sessions: db.sessions ?? [],
+            settings: { ...DEFAULT_SETTINGS, ...(db.settings ?? {}) },
+          };
+        }
+      } catch {
+        // fall through to legacy migration / seed
+      }
+      if (!loaded && !cancelled) {
+        try {
+          const legacy = readLegacyLocalState();
+          if (legacy) {
+            await writeSnapshot({
+              tasks: legacy.tasks,
+              sessions: legacy.sessions,
+              settings: legacy.settings,
+            });
+            window.localStorage.removeItem(STORAGE_KEY);
+            loaded = legacy;
+          }
+        } catch {
+          // ignore; seed below
+        }
+      }
+      if (!cancelled) {
+        setState(loaded ? { ...loaded, tasks: rolloverTasks(loaded.tasks) } : defaultSeed());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const persistTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!state) return;
+    if (persistTimer.current !== null) window.clearTimeout(persistTimer.current);
+    persistTimer.current = window.setTimeout(() => {
+      persistTimer.current = null;
+      void writeSnapshot({ tasks: state.tasks, sessions: state.sessions, settings: state.settings });
+    }, 300);
+    return () => {
+      if (persistTimer.current !== null) window.clearTimeout(persistTimer.current);
+    };
+  }, [state]);
+
+  useEffect(() => {
+    if (!state) return;
+    const flush = () => {
+      if (persistTimer.current !== null) {
+        window.clearTimeout(persistTimer.current);
+        persistTimer.current = null;
+      }
+      void writeSnapshot({ tasks: state.tasks, sessions: state.sessions, settings: state.settings });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+    };
   }, [state]);
 
   useEffect(() => {
@@ -130,7 +193,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const next = new Date(now);
       next.setHours(24, 0, 0, 0);
       timer = window.setTimeout(() => {
-        setState((s) => ({ ...s, tasks: rolloverTasks(s.tasks) }));
+        setState((s) => (s ? { ...s, tasks: rolloverTasks(s.tasks) } : s));
         arm();
       }, next.getTime() - now.getTime() + 50);
     };
@@ -139,62 +202,75 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addTask: AppContextValue["addTask"] = useCallback((task) => {
-    setState((s) => ({
-      ...s,
-      tasks: [
-        {
-          ...task,
-          id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          status: "todo",
-          day: task.bucket === "daily" ? dayKey(new Date()) : undefined,
-          archived: false,
-          createdAt: Date.now(),
-        },
-        ...s.tasks,
-      ],
-    }));
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        tasks: [
+          {
+            ...task,
+            id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            status: "todo",
+            day: task.bucket === "daily" ? dayKey(new Date()) : undefined,
+            archived: false,
+            createdAt: Date.now(),
+          },
+          ...s.tasks,
+        ],
+      };
+    });
   }, []);
 
   const toggleTask: AppContextValue["toggleTask"] = useCallback((id) => {
-    setState((s) => ({
-      ...s,
-      tasks: s.tasks.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              status: t.status === "done" ? "todo" : "done",
-              completedAt: t.status === "done" ? undefined : Date.now(),
-            }
-          : t
-      ),
-    }));
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        tasks: s.tasks.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                status: t.status === "done" ? "todo" : "done",
+                completedAt: t.status === "done" ? undefined : Date.now(),
+              }
+            : t
+        ),
+      };
+    });
   }, []);
 
   const setTaskStatus: AppContextValue["setTaskStatus"] = useCallback((id, status) => {
-    setState((s) => ({
-      ...s,
-      tasks: s.tasks.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              status,
-              completedAt: status === "done" ? Date.now() : t.completedAt,
-            }
-          : t
-      ),
-    }));
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        tasks: s.tasks.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                status,
+                completedAt: status === "done" ? Date.now() : t.completedAt,
+              }
+            : t
+        ),
+      };
+    });
   }, []);
 
   const removeTask: AppContextValue["removeTask"] = useCallback((id) => {
-    setState((s) => ({
-      ...s,
-      tasks: s.tasks.filter((t) => t.id !== id),
-      sessions: s.sessions.filter((se) => se.taskId !== id),
-    }));
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        tasks: s.tasks.filter((t) => t.id !== id),
+        sessions: s.sessions.filter((se) => se.taskId !== id),
+      };
+    });
   }, []);
 
   const saveSession: AppContextValue["saveSession"] = useCallback((session) => {
     setState((s) => {
+      if (!s) return s;
       const record: WorkSession = {
         ...session,
         id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -206,6 +282,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const reAddTask: AppContextValue["reAddTask"] = useCallback((id) => {
     setState((s) => {
+      if (!s) return s;
       const src = s.tasks.find((t) => t.id === id);
       if (!src || src.bucket !== "daily") return s;
       return {
@@ -227,25 +304,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateSettings: AppContextValue["updateSettings"] = useCallback((patch) => {
-    setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
+    setState((s) => {
+      if (!s) return s;
+      return { ...s, settings: { ...s.settings, ...patch } };
+    });
   }, []);
 
   const resetData: AppContextValue["resetData"] = useCallback(() => {
-    // Wipe tasks & sessions; keep preferences. Fresh starter tasks remain.
-    setState((s) => ({
-      ...s,
-      tasks: INITIAL_TASKS,
-      sessions: [],
-    }));
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        tasks: INITIAL_TASKS,
+        sessions: [],
+      };
+    });
   }, []);
 
   const loadSampleData: AppContextValue["loadSampleData"] = useCallback(() => {
-    // Dev/test-only: inject rich synthetic history for exercising analytics.
-    setState((s) => ({ ...s, ...buildSampleData() }));
+    setState((s) => {
+      if (!s) return s;
+      return { ...s, ...buildSampleData() };
+    });
   }, []);
 
-  const value = useMemo(
-    () => ({
+  const value = useMemo(() => {
+    if (!state) return null;
+    return {
       tasks: state.tasks,
       sessions: state.sessions,
       settings: state.settings,
@@ -258,9 +343,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       reAddTask,
       resetData,
       loadSampleData,
-    }),
-    [state, addTask, toggleTask, removeTask, setTaskStatus, saveSession, updateSettings, reAddTask, resetData, loadSampleData]
-  );
+    };
+  }, [state, addTask, toggleTask, removeTask, setTaskStatus, saveSession, updateSettings, reAddTask, resetData, loadSampleData]);
+
+  if (!state || !value) {
+    return (
+      <div className="flex min-h-[100dvh] w-full items-center justify-center bg-background">
+        <div className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted">Pulse</div>
+      </div>
+    );
+  }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
