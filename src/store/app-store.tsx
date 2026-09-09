@@ -152,7 +152,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const stateRef = useRef(state);
   const persistTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    stateRef.current = state;
+  });
 
   useEffect(() => {
     if (!state) return;
@@ -167,13 +172,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state]);
 
   useEffect(() => {
-    if (!state) return;
     const flush = () => {
       if (persistTimer.current !== null) {
         window.clearTimeout(persistTimer.current);
         persistTimer.current = null;
       }
-      void writeSnapshot({ tasks: state.tasks, sessions: state.sessions, settings: state.settings });
+      const s = stateRef.current;
+      if (!s) return;
+      void writeSnapshot({ tasks: s.tasks, sessions: s.sessions, settings: s.settings });
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flush();
@@ -184,7 +190,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", flush);
     };
-  }, [state]);
+  }, []);
 
   useEffect(() => {
     let timer: number;
