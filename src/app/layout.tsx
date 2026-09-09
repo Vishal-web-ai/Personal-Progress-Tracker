@@ -1,17 +1,26 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
+
+const APP_NAME = "Pulse";
 
 export const metadata: Metadata = {
+  applicationName: APP_NAME,
   title: "Pulse — Personal Productivity OS",
-  description:
-    "A premium personal productivity operating system: dashboard, tasks, focus timer, goals and analytics.",
+  description: "A premium personal productivity operating system: dashboard, tasks, focus timer, goals and analytics.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: APP_NAME,
+  },
+  formatDetection: { telephone: false },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#061B14",
 };
 
 export default function RootLayout({
