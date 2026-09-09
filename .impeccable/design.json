@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-07T00:00:00.000Z",
+  "title": "Design System: Pulse — Personal Productivity OS",
+  "extensions": {
+    "colorMeta": {
+      "forest-deep": { "role": "neutral", "displayName": "Forest Deep", "canonical": "oklch(20% 0.02 165)", "tonalRamp": ["#020a07", "#030d09", "#04140f", "#0a241b", "#123528", "#1b4a38", "#256048", "#32785a"] },
+      "forest-ground": { "role": "neutral", "displayName": "Forest Ground", "canonical": "oklch(22% 0.025 165)", "tonalRamp": ["#020c08", "#03110c", "#061b14", "#0d2a20", "#163c2e", "#1f503e", "#2a6750", "#388064"] },
+      "surface": { "role": "neutral", "displayName": "Surface", "canonical": "oklch(26% 0.03 164)", "tonalRamp": ["#040f0b", "#061711", "#0b241c", "#14352b", "#1e483b", "#2a5d4d", "#387361", "#488b77"] },
+      "surface-elevated": { "role": "neutral", "displayName": "Surface Elevated", "canonical": "oklch(29% 0.032 164)", "tonalRamp": ["#051310", "#081d17", "#102c23", "#1a3e32", "#255144", "#316656", "#3e7d6a", "#4d9680"] },
+      "surface-soft": { "role": "neutral", "displayName": "Surface Soft", "canonical": "oklch(30% 0.03 164)", "tonalRamp": ["#061512", "#0a1f1a", "#132f26", "#1d4236", "#285649", "#346c5b", "#418470", "#509c87"] },
+      "hairline": { "role": "neutral", "displayName": "Hairline", "canonical": "oklch(35% 0.05 164)", "tonalRamp": ["#0a1b15", "#0f271f", "#18372d", "#24483c", "#315b4e", "#3f6f60", "#4e8574", "#5f9c8a"] },
+      "hairline-soft": { "role": "neutral", "displayName": "Hairline Soft", "canonical": "oklch(32% 0.04 164)", "tonalRamp": ["#081613", "#0c201a", "#18372d", "#24483c", "#315b4e", "#3f6f60", "#4e8574", "#5f9c8a"] },
+      "ink-hi": { "role": "neutral", "displayName": "Ink Hi", "canonical": "oklch(95% 0.005 160)", "tonalRamp": ["#52615a", "#6a7972", "#82918a", "#99a8a1", "#b1c0b9", "#c9d7d1", "#e1efe9", "#f4f7f5"] },
+      "ink-mid": { "role": "neutral", "displayName": "Ink Mid", "canonical": "oklch(76% 0.02 160)", "tonalRamp": ["#394a42", "#47584f", "#56685f", "#66786f", "#778a80", "#899c92", "#9caea4", "#b6c6bd"] },
+      "ink-low": { "role": "neutral", "displayName": "Ink Low", "canonical": "oklch(58% 0.02 160)", "tonalRamp": ["#24372f", "#2f423a", "#3b4e46", "#485a52", "#556760", "#63756e", "#71827b", "#809189"] },
+      "lime-accent": { "role": "primary", "displayName": "Lime Signal", "canonical": "oklch(90% 0.24 125)", "tonalRamp": ["#3a5a14", "#4a6f1b", "#5c8522", "#6f9c2a", "#83b433", "#99cc3d", "#b8ff4a", "#d2ff8a"] },
+      "lime-accent-soft": { "role": "primary", "displayName": "Lime Soft", "canonical": "oklch(84% 0.2 125)", "tonalRamp": ["#2c4510", "#395915", "#476f1b", "#568622", "#669e2a", "#77b633", "#8edc45", "#a5f06a"] },
+      "lime-accent-dark": { "role": "primary", "displayName": "Lime Dark", "canonical": "oklch(60% 0.14 130)", "tonalRamp": ["#1b2a09", "#23370c", "#2c4510", "#365416", "#41641c", "#4c7623", "#58882b", "#659b34"] },
+      "priority-high": { "role": "neutral", "displayName": "Priority High", "canonical": "oklch(72% 0.19 25)", "tonalRamp": ["#5a1515", "#721d1d", "#8b2727", "#a53535", "#bd4a4c", "#d25f62", "#e87679", "#ff9a9c"] },
+      "priority-medium": { "role": "neutral", "displayName": "Priority Medium", "canonical": "oklch(82% 0.13 90)", "tonalRamp": ["#57420f", "#6d5415", "#84681c", "#9b7d24", "#b3932d", "#cbaa37", "#e8c85a", "#fada86"] },
+      "priority-low": { "role": "neutral", "displayName": "Priority Low", "canonical": "oklch(80% 0.17 145)", "tonalRamp": ["#1c4a24", "#235c2e", "#2b6f39", "#348344", "#3e9850", "#49ad5c", "#6fde78", "#8eeda0"] },
+      "ring-track": { "role": "neutral", "displayName": "Ring Track", "canonical": "oklch(32% 0.035 164)", "tonalRamp": ["#081611", "#0c1e18", "#102a22", "#15382d", "#1b4739", "#215846", "#286a54", "#307d63"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Greeting line and primary titles that anchor a surface." },
+      "title": { "displayName": "Title", "purpose": "Card and section headings." },
+      "body": { "displayName": "Body", "purpose": "Task rows, paragraphs, secondary copy." },
+      "label": { "displayName": "Label", "purpose": "Uppercase chips and micro-markers." }
+    },
+    "shadows": [
+      { "name": "float", "value": "0 8px 24px rgba(0,0,0,0.16)", "purpose": "The docked global timer bar and modal dialogs — only elements that float above the page." },
+      { "name": "float-sm", "value": "0 4px 12px rgba(0,0,0,0.12)", "purpose": "Small floating chips and tooltips." }
+    ],
+    "motion": [
+      { "name": "ease-out-signal", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "State transitions: page-in, rise-in, modal, toast, accordion (0.22–0.28s)." },
+      { "name": "ease-standard", "value": "ease-out", "purpose": "Colors and borders (100–200ms) on interactive elements." },
+      { "name": "ring-sweep", "value": "cubic-bezier(0.22, 1, 0.36, 1) 600ms", "purpose": "Progress ring value sweep; tick bead travels 700ms." },
+      { "name": "press", "value": "transform 0.1s ease-out", "purpose": "Touch feedback: active scale 0.98." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single act the screen wants — start focus, create task, save.",
+      "html": "<button class=\"ds-btn-primary\">Start focus</button>",
+      "css": ".ds-btn-primary { background: #b8ff4a; color: #061b14; font-family: Inter, system-ui, sans-serif; font-size: 15px; font-weight: 600; line-height: 1; padding: 12px 20px; border: none; border-radius: 9999px; cursor: pointer; transition: background-color 0.15s ease-out, transform 0.1s ease-out; } .ds-btn-primary:hover { background: #8edc45; } .ds-btn-primary:active { transform: scale(0.98); } .ds-btn-primary:focus-visible { outline: 2px solid #b8ff4a; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary, non-activating action.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { background: #102c23; color: #f4f7f5; font-family: Inter, system-ui, sans-serif; font-size: 15px; font-weight: 500; padding: 12px 20px; border: 1px solid #24483c; border-radius: 9999px; cursor: pointer; transition: background-color 0.15s ease-out, border-color 0.15s ease-out, transform 0.1s ease-out; } .ds-btn-secondary:hover { background: #132f26; border-color: #315b4e; } .ds-btn-secondary:active { transform: scale(0.98); } .ds-btn-secondary:focus-visible { outline: 2px solid #b8ff4a; outline-offset: 2px; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Standard soft card in the page flow — flat, hairline-bordered.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-head\">Today's Progress</div><div class=\"ds-card-body\">Focus time, tasks done, streak — one glance.</div></div>",
+      "css": ".ds-card { background: #0b241c; color: #f4f7f5; font-family: Inter, system-ui, sans-serif; border: 1px solid #24483c; border-radius: 18px; padding: 20px 24px; } .ds-card-head { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; } .ds-card-body { margin-top: 8px; font-size: 14px; line-height: 1.5; color: #aebdb6; }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Form field — one elevated step above surface with a hairline stroke.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"What needs to be done?\">",
+      "css": ".ds-input { background: #102c23; color: #f4f7f5; font-family: Inter, system-ui, sans-serif; font-size: 15px; padding: 10px 14px; border: 1px solid #24483c; border-radius: 12px; transition: border-color 0.15s ease-out; } .ds-input::placeholder { color: #71827b; } .ds-input:hover { border-color: #315b4e; } .ds-input:focus-visible { outline: 2px solid #b8ff4a; outline-offset: 2px; border-color: #b8ff4a; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Filter/toggle chip; selected inverts to the rationed lime.",
+      "html": "<div class=\"ds-chip-row\"><button class=\"ds-chip\">All</button><button class=\"ds-chip ds-chip-on\">High</button><button class=\"ds-chip\">Later</button></div>",
+      "css": ".ds-chip-row { display: flex; gap: 8px; } .ds-chip { background: #102c23; color: #aebdb6; font-family: Inter, system-ui, sans-serif; font-size: 13px; font-weight: 500; padding: 7px 14px; border: none; border-radius: 9999px; cursor: pointer; transition: background-color 0.15s ease-out, color 0.15s ease-out; } .ds-chip:hover { background: #132f26; color: #f4f7f5; } .ds-chip-on { background: #b8ff4a; color: #061b14; font-weight: 600; } .ds-chip-on:hover { background: #8edc45; color: #061b14; } .ds-chip:focus-visible { outline: 2px solid #b8ff4a; outline-offset: 2px; }"
+    },
+    {
+      "name": "Navigation Item",
+      "kind": "nav",
+      "refersTo": "chip",
+      "description": "Sidebar nav item — inactive at Ink Low, active in lime with a subtle elevation.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item\"><span>Home</span></a><a class=\"ds-nav-item ds-nav-on\"><span>Goals</span></a><a class=\"ds-nav-item\"><span>Analytics</span></a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 4px; } .ds-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 14px; color: #71827b; font-family: Inter, system-ui, sans-serif; font-size: 14px; font-weight: 500; text-decoration: none; border-radius: 9999px; transition: color 0.15s ease-out, background-color 0.15s ease-out; } .ds-nav-item:hover { color: #f4f7f5; background: #102c23; } .ds-nav-on { color: #b8ff4a; font-weight: 600; } .ds-nav-on:hover { color: #b8ff4a; background: #102c23; }"
+    },
+    {
+      "name": "Progress Ring",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "The signature: fine lime sweep on a muted track with a tick bead riding the rim.",
+      "html": "<div class=\"ds-ring-wrap\"><svg class=\"ds-ring\" width=\"168\" height=\"168\" viewBox=\"0 0 168 168\"><circle class=\"ds-ring-track\" cx=\"84\" cy=\"84\" r=\"75\"/><circle class=\"ds-ring-bar\" cx=\"84\" cy=\"84\" r=\"75\" pathLength=\"100\" stroke-dasharray=\"100\" stroke-dashoffset=\"30\"/><circle class=\"ds-ring-tick\" cx=\"131.8\" cy=\"55.3\" r=\"5\"/></svg><div class=\"ds-ring-center\"><span>70</span><small>%</small></div></div>",
+      "css": ".ds-ring-wrap { position: relative; width: 168px; height: 168px; display: inline-flex; align-items: center; justify-content: center; } .ds-ring { transform: rotate(-90deg); } .ds-ring-track { fill: none; stroke: #203a31; stroke-width: 18; } .ds-ring-bar { fill: none; stroke: #b8ff4a; stroke-width: 18; stroke-linecap: round; } .ds-ring-tick { fill: #b8ff4a; stroke: #061b14; stroke-width: 3; } .ds-ring-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: Inter, system-ui, sans-serif; } .ds-ring-center span { font-size: 42px; font-weight: 700; letter-spacing: -0.02em; color: #f4f7f5; font-variant-numeric: tabular-nums; } .ds-ring-center small { margin-bottom: 18px; font-size: 14px; color: #aebdb6; }"
+    },
+    {
+      "name": "Global Timer Bar",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Docked bottom bar while a focus session runs — elevated, floating, centered pulse.",
+      "html": "<div class=\"ds-timerbar\"><span class=\"ds-timer-pulse\"></span><span class=\"ds-timer-title\">Design the onboarding flow</span><span class=\"ds-timer-elapsed\">24:10</span><button class=\"ds-timer-pause\">Pause</button><button class=\"ds-timer-finish\">Finish</button></div>",
+      "css": ".ds-timerbar { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; background: #102c23; color: #f4f7f5; font-family: Inter, system-ui, sans-serif; font-size: 14px; padding: 10px 14px 10px 18px; border: 1px solid #24483c; border-radius: 9999px; box-shadow: 0 8px 24px rgba(0,0,0,0.16); } .ds-timer-pulse { width: 8px; height: 8px; border-radius: 9999px; background: #b8ff4a; } .ds-timer-title { font-weight: 500; color: #f4f7f5; } .ds-timer-elapsed { font-variant-numeric: tabular-nums; color: #b8ff4a; font-weight: 600; } .ds-timer-pause, .ds-timer-finish { font-size: 13px; padding: 7px 14px; border-radius: 9999px; border: none; cursor: pointer; } .ds-timer-pause { background: #132f26; color: #aebdb6; } .ds-timer-finish { background: #b8ff4a; color: #061b14; font-weight: 600; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The focus cabin in a forest at night",
+    "overview": "Pulse is a personal productivity OS for a single user. The interface reads like a quiet, rain-damped cabin office built on paper-dark forest floors: near-black green grounds, hairline borders that catch the light like wood grain, and one bright lime accent — the \"signal light\" — drawn only where the user acts or earns progress. Premium-minimalist: nothing decorative, everything functional, but with the exactness of instruments rather than the looseness of a toy. The mode is Operate: scanability and consistency outrank expression, so the design depends on precision rather than spectacle — fine-stroked progress rings with a tick at the current value, tabular numerals for metrics, hover-only affordances on desktop that become always-visible on touch, and motion tuned to 100–300ms with a gentle ease-out. The signature is the progress ring: fine stroke, muted green track, lime sweep, and a small tick bead that travels the rim to the live value. Color is scarce and rationed; the lime accent sits on polished, reflective rounded surfaces, has no gradient around it, and never decorates idle chrome.",
+    "keyCharacteristics": [
+      "Rationed lime on dark forest ground — accent means \"act here\" or \"progress earned\"",
+      "Fine-stroked progress rings with a traveling tick bead as the signature element",
+      "Hairline borders, soft cards, generous rounded corners (14–22px)",
+      "Tabular numerals on every metric; Inter throughout",
+      "100–300ms eased-in-out motion that collapses under reduced motion",
+      "Hover-revealed desktop affordances; always-visible on touch"
+    ],
+    "rules": [
+      { "name": "The Rationed Signal Rule", "body": "The lime accent is used on ≤10% of any given screen. It marks action and earned progress — never idle chrome, never as a wash. Rarity is the point.", "section": "colors" },
+      { "name": "The No-Glow Rule", "body": "Accents never glow, blur, or emit. The ring's fine stroke and tick speak louder than any halo.", "section": "colors" },
+      { "name": "The Rationed Boldness Rule", "body": "Bold (700) is reserved for the value the eye must land on — the greeting, the ring value, section titles, the active metric.", "section": "typography" },
+      { "name": "The Tabular-Precision Rule", "body": "Every live metric renders with tabular-nums. Numbers that change must not reflow the layout as they tick.", "section": "typography" },
+      { "name": "The Flat-by-Default Rule", "body": "Surfaces are flat at rest. Shadows appear only for elements that physically float above the page (timer bar, modal).", "section": "elevation" }
+    ],
+    "dos": [
+      "Do draw the lime accent only where the user acts or progress is earned — keep it under ~10% of the screen.",
+      "Do use the progress ring for \"how far toward done\" and tabular numerals for any live metric.",
+      "Do keep cards flat in the page flow; reserve shadows for the floating timer bar and modals.",
+      "Do use Hairline (1px) borders and tonal elevation (Surface → Elevated → Soft) to separate layers.",
+      "Do keep all UI on Inter; bold only the value or title the eye must land on.",
+      "Do collapse every animation under prefers-reduced-motion — reveal the same data instantly."
+    ],
+    "donts": [
+      "Don't apply gradients, glows, or backdrop blurs to the accent or cards — flat instrument precision only.",
+      "Don't use the lime as a wash or background for reading surfaces; it is an action/earned color.",
+      "Don't race every second of a timer through a global re-render; only the consuming views tick.",
+      "Don't hide a hover-only affordance on touch; reveal it always at small screens.",
+      "Don't stack weights — hierarchy comes from size/tracking/color, not bolding everything."
+    ]
+  }
+}

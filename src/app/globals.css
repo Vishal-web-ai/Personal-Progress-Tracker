@@ -1,26 +1,397 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #061b14;
+  --background-deep: #04140f;
+
+  --surface: #0b241c;
+  --surface-elevated: #102c23;
+  --surface-soft: #132f26;
+
+  --border: #24483c;
+  --border-soft: #18372d;
+
+  --text-primary: #f4f7f5;
+  --text-secondary: #aebdb6;
+  --text-muted: #71827b;
+
+  --accent: #b8ff4a;
+  --accent-soft: #8edc45;
+  --accent-dark: #4f8c32;
+
+  --priority-high: #ff6b6b;
+  --priority-medium: #e8c85a;
+  --priority-low: #6fde78;
+
+  --ring-track: #203a31;
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background-deep: var(--background-deep);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-soft: var(--surface-soft);
+  --color-border: var(--border);
+  --color-border-soft: var(--border-soft);
+  --color-foreground: var(--text-primary);
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-dark: var(--accent-dark);
+  --color-high: var(--priority-high);
+  --color-medium: var(--priority-medium);
+  --color-low: var(--priority-low);
+  --color-ring-track: var(--ring-track);
+  --font-sans: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text-primary);
+  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(184, 255, 74, 0.2);
+  color: var(--text-primary);
+}
+
+/* Focus visibility */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Subtle card shadow */
+.card-shadow {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.card-shadow-sm {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Motion system */
+.motion-page {
+  animation: page-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.motion-stagger > * {
+  animation: rise-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.motion-stagger > :nth-child(1) { animation-delay: 0.02s; }
+.motion-stagger > :nth-child(2) { animation-delay: 0.05s; }
+.motion-stagger > :nth-child(3) { animation-delay: 0.08s; }
+.motion-stagger > :nth-child(4) { animation-delay: 0.11s; }
+.motion-stagger > :nth-child(5) { animation-delay: 0.14s; }
+
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Accordion content (height animation) */
+.accordion-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.accordion-content.open {
+  grid-template-rows: 1fr;
+}
+.accordion-inner {
+  overflow: hidden;
+}
+
+/* Toast */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.toast-in {
+  animation: toast-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Modal */
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-dialog-in {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (min-width: 640px) {
+  @keyframes modal-dialog-in {
+    from { opacity: 0; transform: translateY(6px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+}
+.modal-backdrop { animation: modal-backdrop-in 0.2s ease-out both; }
+.modal-dialog { animation: modal-dialog-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Press feedback */
+.pressable {
+  transition: transform 0.1s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out, color 0.15s ease-out;
+}
+.pressable:active {
+  transform: scale(0.98);
+}
+
+/* Mobile progress morph (compact ring ↔ full Today's Progress card) */
+/* Card children stagger in after the body finishes growing from the ring. */
+.mprogress-grow > section > * {
+  animation: mprogress-reveal 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.18s;
+}
+@keyframes mprogress-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Chart entrance animations */
+@keyframes chart-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.chart-grow {
+  animation: chart-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform: scaleY(1);
+}
+
+@keyframes chart-draw {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.chart-draw {
+  animation: chart-draw 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Segmented control pill transitions */
+.seg-control {
+  transition: color 0.2s ease-out, background-color 0.2s ease-out;
+}
+
+/* KPI value cross-fade on period switch */
+@keyframes kpi-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.kpi-in {
+  animation: kpi-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 8px;
+  border: 2px solid var(--background);
+}
+
+/* TipTap Editor */
+.tiptap-editor .tiptap {
+  outline: none;
+  min-height: 200px;
+}
+
+.tiptap-editor .tiptap p.is-editor-empty:first-child::before {
+  color: var(--text-muted);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.tiptap-editor .tiptap h1 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0.6em 0 0.3em;
+}
+
+.tiptap-editor .tiptap h2 {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0.5em 0 0.25em;
+}
+
+.tiptap-editor .tiptap h3 {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-primary);
+  margin: 0.4em 0 0.2em;
+}
+
+.tiptap-editor .tiptap p {
+  margin: 0.3em 0;
+  line-height: 1.6;
+}
+
+/* List styles */
+.tiptap-editor .tiptap ul.list-bullet,
+.tiptap-editor .tiptap ul:not([data-list-style]) {
+  list-style: disc;
+  padding-left: 1.4em;
+  margin: 0.4em 0;
+}
+
+.tiptap-editor .tiptap ul.list-dash {
+  list-style: none;
+  padding-left: 1.4em;
+  margin: 0.4em 0;
+}
+
+.tiptap-editor .tiptap ul.list-dash li::before {
+  content: "- ";
+  color: var(--accent);
+  font-weight: 600;
+  margin-left: -1em;
+}
+
+.tiptap-editor .tiptap ul.list-arrow {
+  list-style: none;
+  padding-left: 1.4em;
+  margin: 0.4em 0;
+}
+
+.tiptap-editor .tiptap ul.list-arrow li::before {
+  content: "→ ";
+  color: var(--accent);
+  font-weight: 600;
+  margin-left: -1em;
+}
+
+.tiptap-editor .tiptap ol.list-numbers,
+.tiptap-editor .tiptap ol:not([data-list-style]) {
+  list-style: decimal;
+  padding-left: 1.4em;
+  margin: 0.4em 0;
+}
+
+.tiptap-editor .tiptap ol.list-letters {
+  list-style: upper-alpha;
+  padding-left: 1.4em;
+  margin: 0.4em 0;
+}
+
+.tiptap-editor .tiptap li::marker {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tiptap-editor .tiptap li {
+  margin: 0.15em 0;
+  line-height: 1.5;
+}
+
+.tiptap-editor .tiptap strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tiptap-editor .tiptap em {
+  font-style: italic;
+}
+
+/* Tables */
+.tiptap-editor .tiptap .tableWrapper {
+  overflow-x: auto;
+  margin: 0.6em 0;
+}
+
+.tiptap-editor .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  overflow: hidden;
+  -webkit-touch-callout: none;
+}
+
+.tiptap-editor .tiptap th,
+.tiptap-editor .tiptap td {
+  border: 2px solid var(--border);
+  padding: 8px 12px;
+  min-width: 80px;
+  position: relative;
+  vertical-align: top;
+  text-align: left;
+}
+
+.tiptap-editor .tiptap th {
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tiptap-editor .tiptap td p {
+  margin: 0;
+}
+
+.tiptap-editor .tiptap .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(184, 255, 74, 0.05);
+  border: 1px solid rgba(184, 255, 74, 0.3);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tiptap-editor .tiptap .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: rgba(79, 140, 50, 0.4);
+  pointer-events: none;
+}
+
+.tiptap-editor .tiptap .resize-cursor {
+  cursor: col-resize;
 }
