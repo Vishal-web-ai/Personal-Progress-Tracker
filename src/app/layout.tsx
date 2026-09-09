@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   applicationName: APP_NAME,
   title: "Pulse — Personal Productivity OS",
   description: "A premium personal productivity operating system: dashboard, tasks, focus timer, goals and analytics.",
+  manifest: "/manifest.json",
   icons: {
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
