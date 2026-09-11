@@ -154,3 +154,32 @@ pulse/
 │   │       └── page.tsx            # NEW: Notes page
 │   └── ...
 ```
+
+---
+
+# Session Context (Sep 9, 2026)
+
+## Daily Task Rollover + History
+- **File:** `src/types/index.ts` — `Task` gains `day: "today" | "archived"`, `archived` flag; `isTaskForToday()` helper
+- **Files:** `src/lib/tasks.ts` — `migrateTask()`, `rolloverTasks()`; `src/app/page.tsx` — midnight `setTimeout` rollover logic
+- **Files:** `src/components/tasks/` — `TaskHistory.tsx`, `ArchivedTaskRow.tsx`
+- **File:** `src/components/analytics/AnalyticsContent.tsx` — metrics exclude archived tasks
+- **Removed:** "This week's check-offs" (DailyTrend) from homepage — only `MobileProgress > TaskList` remains
+
+## Offline-First PWA (localStorage → IndexedDB)
+- **Decision:** "Local now, sync later" — IDB seam designed as the future sync point; static host (Cloudflare Pages / Vercel); static export
+- **New file:** `src/lib/db.ts` — IndexedDB seam (idb): DB `pulse` v1, store `kv`, keys `tasks`/`sessions`/`settings`/`meta`, `readSnapshot()`/`writeSnapshot()`, `PersistedSnapshot`
+- **Reworked:** `src/store/app-store.tsx` — hydrate from IDB → one-time migrate legacy `pulse-state-v1` (removed only after successful write) → seed defaults → `rolloverTasks` at hydrate; 300ms debounced writes; flush on `visibilitychange`(hidden)/`pagehide` via `stateRef` (fixes stale-closure data loss); midnight timer kept; null-safe `useMemo` + loading gate; callbacks byte-identical
+- **PWA shell (`@serwist/next` 9.5.12):** `next.config.ts` (`output:"export"`), `src/app/sw.ts` (Serwist worker, default precache), package.json scripts `next dev --webpack` / `next build --webpack` (Next 16 webpack opt-out, since `turbopack:false` config is rejected)
+- **Assets:** `public/manifest.json` (standalone, theme `#061B14`, 3 icons incl. maskable), `public/icons/` (icon-192/512, maskable-512, apple-touch 180) via `scripts/generate-icons.mjs` (pngjs)
+- **Head metadata:** appleWebApp, themeColor `#061B14`, apple-touch-icon link, `<link rel="manifest" href="/manifest.json">`
+- **Deps:** `idb@8.0.3`, `@serwist/next@9.5.12`, `serwist@9.5.12`, `pngjs@7.0.0`, `@types/pngjs@6.0.5`
+- **Verified:** lint clean, build green (webpack header, 9 static routes), out/ inventory complete (sw.js, manifest.json, icons valid PNGs)
+- **HEAD:** `911c609` (9 commits from baseline 697c471)
+- Spec/plan: `docs/superpowers/specs+plans/2026-09-09-offline-pwa-storage-*`; SDD ledger: `.superpowers/sdd/2026-09-09-offline-pwa-storage/`
+
+### Remaining manual checks (need a real browser/device)
+1. Fresh profile → seeds in IDB, no `pulse-state-v1`
+2. Edit → reload → persists; tab-switch with pending edit → reload → preserved
+3. DevTools → Network → Offline → reload → app works from SW
+4. Install to home screen (Android/iOS) → standalone launch works
