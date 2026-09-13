@@ -13,7 +13,11 @@ export const metadata: Metadata = {
   description: "A premium personal productivity operating system: dashboard, tasks, focus timer, goals and analytics.",
   manifest: "/manifest.json",
   icons: {
-    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/icon-192.png", sizes: "180x180" }],
   },
   appleWebApp: {
     capable: true,

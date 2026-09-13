@@ -68,8 +68,6 @@ function render(size, { opaque = false, padding = 0 } = {}) {
 const files = {
   "icon-192.png": render(192),
   "icon-512.png": render(512),
-  "maskable-512.png": render(512, { padding: 0.08 }),
-  "apple-touch-icon.png": render(180, { opaque: true }),
 };
 
 for (const [name, buf] of Object.entries(files)) {
