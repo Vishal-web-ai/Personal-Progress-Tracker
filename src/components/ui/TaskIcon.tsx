@@ -16,6 +16,7 @@ import {
   PenLine,
   GraduationCap,
   Container,
+  Speech,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ const ICONS: Record<string, LucideIcon> = {
   pen: PenLine,
   grad: GraduationCap,
   container: Container,
+  speak: Speech,
 };
 
 export function TaskIcon({ name, size = 20 }: { name: string; size?: number }) {

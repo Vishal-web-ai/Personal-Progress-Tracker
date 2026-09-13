@@ -1,23 +1,38 @@
 "use client";
 
-import React, { useState } from "react";
-import { Database, SlidersHorizontal, Trash2, Sparkles, FlaskConical } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Database, SlidersHorizontal, Trash2, Sparkles, FlaskConical, Camera } from "lucide-react";
 import { useApp } from "@/store/app-store";
 import { useToast } from "@/store/toast-store";
 import { Field, Input } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { Avatar } from "@/components/ui/Avatar";
+import { compressImageToDataUrl } from "@/lib/avatar";
 
 const DEV = process.env.NODE_ENV !== "production";
 
 export function SettingsContent() {
   const { settings, updateSettings, sessions, tasks, resetData, loadSampleData } = useApp();
   const { toast } = useToast();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(settings.userName);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmSample, setConfirmSample] = useState(false);
   const isDemo = sessions.some((s) => s.id.startsWith("seed")) || tasks.some((t) => t.id.startsWith("sample"));
+
+  const handleAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      updateSettings({ avatarUrl: await compressImageToDataUrl(file) });
+      toast("Photo updated");
+    } catch {
+      toast("Could not read that image", "warn");
+    }
+  };
 
   const savePreferences = () => {
     updateSettings({
@@ -50,6 +65,28 @@ export function SettingsContent() {
           <SlidersHorizontal size={18} className="text-muted" /> Preferences
         </h2>
         <div className="space-y-4">
+          <Field label="Profile photo">
+            <div className="flex flex-wrap items-center gap-4">
+              <Avatar src={settings.avatarUrl} name={settings.userName} size={60} />
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => avatarInputRef.current?.click()}>
+                  <Camera size={16} /> Change photo
+                </Button>
+                {settings.avatarUrl && (
+                  <Button variant="danger" onClick={() => updateSettings({ avatarUrl: undefined })}>
+                    <Trash2 size={16} /> Remove
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarPick}
+              />
+            </div>
+          </Field>
           <Field label="Your name">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Vishal" />
           </Field>

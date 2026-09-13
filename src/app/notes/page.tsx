@@ -1,5 +1,10 @@
-import { NotesContent } from "@/components/notes/NotesContent";
+import { Suspense } from "react";
+import { NotesRoute } from "@/components/notes/NotesRoute";
 
 export default function NotesPage() {
-  return <NotesContent />;
+  return (
+    <Suspense fallback={null}>
+      <NotesRoute />
+    </Suspense>
+  );
 }

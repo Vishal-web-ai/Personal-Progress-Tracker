@@ -6,10 +6,10 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import type { Note } from "@/types";
+import { readNotes, writeNotes } from "@/lib/db";
 
 interface NotesContextValue {
   notes: Note[];
@@ -19,12 +19,12 @@ interface NotesContextValue {
   togglePin: (id: string) => void;
 }
 
-const STORAGE_KEY = "pulse-notes-v1";
+const LEGACY_STORAGE_KEY = "pulse-notes-v1";
 
-function loadNotes(): Note[] {
+function loadLegacyNotes(): Note[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
     if (raw) return JSON.parse(raw) as Note[];
   } catch {
     // corrupt data
@@ -35,20 +35,38 @@ function loadNotes(): Note[] {
 const NotesContext = createContext<NotesContextValue | null>(null);
 
 export function NotesProvider({ children }: { children: React.ReactNode }) {
-  const [notes, setNotes] = useState<Note[]>(loadNotes);
-  const hydrated = useRef(false);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!hydrated.current) {
-      hydrated.current = true;
-      return;
-    }
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-    } catch {
-      // storage full
-    }
-  }, [notes]);
+    let cancelled = false;
+    (async () => {
+      let stored = await readNotes();
+      if (stored === null) {
+        const legacy = loadLegacyNotes();
+        if (legacy.length > 0) {
+          stored = legacy;
+          void writeNotes(legacy);
+          try {
+            window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+          } catch {
+            // ignore
+          }
+        }
+      }
+      if (cancelled) return;
+      setNotes(stored ?? []);
+      setReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    void writeNotes(notes);
+  }, [notes, ready]);
 
   const addNote = useCallback((title: string, content: string): Note => {
     const now = Date.now();

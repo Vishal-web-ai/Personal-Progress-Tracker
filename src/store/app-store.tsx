@@ -9,14 +9,16 @@ import React, {
   useRef,
   useState,
 } from "react";
-import type { Task, TaskBucket, WorkSession } from "@/types";
-import { INITIAL_TASKS, buildSeedSessions } from "@/data/initial";
+import type { Area, Task, TaskBucket, WorkSession } from "@/types";
+import { AREAS, INITIAL_TASKS, buildSeedSessions } from "@/data/initial";
 import { buildSampleData } from "@/data/sample";
 import { dayKey, dayKeyFor } from "@/lib/time";
 import { readSnapshot, writeSnapshot } from "@/lib/db";
 
 interface AppSettings {
   userName: string;
+  avatarUrl?: string;
+  areas: Area[];
 }
 
 interface AppState {
@@ -30,6 +32,8 @@ interface AppContextValue {
   sessions: WorkSession[];
   settings: AppSettings;
   addTask: (task: Omit<Task, "id" | "createdAt" | "status">) => void;
+  addArea: (name: string) => Area | null;
+  removeArea: (id: string) => void;
   toggleTask: (id: string) => void;
   removeTask: (id: string) => void;
   setTaskStatus: (id: string, status: Task["status"]) => void;
@@ -44,7 +48,12 @@ const STORAGE_KEY = "pulse-state-v1";
 
 const DEFAULT_SETTINGS: AppSettings = {
   userName: "Vishal",
+  avatarUrl: undefined,
+  areas: [],
 };
+
+/** Default icons handed to new custom areas, cycled so siblings stay distinct. */
+const CUSTOM_AREA_ICONS = ["brain", "wrench", "target", "music", "trending", "container", "mic", "grad"];
 
 /** Older persisted tasks used `due` ("today" | "this_week" | "later") and
  *  `estimatedMinutes`. Map them into the current bucket model. */
@@ -245,6 +254,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const addArea: AppContextValue["addArea"] = useCallback(
+    (name) => {
+      const trimmed = name.trim();
+      if (!trimmed) return null;
+      const existing = (state?.settings.areas ?? []).length;
+      const taken = [...AREAS, ...(state?.settings.areas ?? [])].map((a) => a.name.toLowerCase());
+      if (taken.includes(trimmed.toLowerCase())) return null;
+      const area: Area = {
+        id: `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+        name: trimmed,
+        icon: CUSTOM_AREA_ICONS[existing % CUSTOM_AREA_ICONS.length],
+      };
+      setState((s) =>
+        s ? { ...s, settings: { ...s.settings, areas: [...s.settings.areas, area] } } : s
+      );
+      return area;
+    },
+    [state]
+  );
+
+  const removeArea: AppContextValue["removeArea"] = useCallback((id) => {
+    setState((s) =>
+      s ? { ...s, settings: { ...s.settings, areas: s.settings.areas.filter((a) => a.id !== id) } } : s
+    );
+  }, []);
+
   const setTaskStatus: AppContextValue["setTaskStatus"] = useCallback((id, status) => {
     setState((s) => {
       if (!s) return s;
@@ -343,6 +378,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       sessions: state.sessions,
       settings: state.settings,
       addTask,
+      addArea,
+      removeArea,
       toggleTask,
       removeTask,
       setTaskStatus,
@@ -352,7 +389,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       resetData,
       loadSampleData,
     };
-  }, [state, addTask, toggleTask, removeTask, setTaskStatus, saveSession, updateSettings, reAddTask, resetData, loadSampleData]);
+  }, [state, addTask, addArea, removeArea, toggleTask, removeTask, setTaskStatus, saveSession, updateSettings, reAddTask, resetData, loadSampleData]);
 
   if (!state || !value) {
     return (

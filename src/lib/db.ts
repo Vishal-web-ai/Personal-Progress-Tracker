@@ -1,12 +1,12 @@
 "use client";
 
 import { openDB, type IDBPDatabase } from "idb";
-import type { Task, WorkSession } from "@/types";
+import type { Note, Task, WorkSession } from "@/types";
 
 export interface PersistedSnapshot {
   tasks: Task[];
   sessions: WorkSession[];
-  settings: { userName: string };
+  settings: { userName: string; avatarUrl?: string };
 }
 
 interface KvRecord<T> {
@@ -21,6 +21,7 @@ const KEYS = {
   tasks: "tasks",
   sessions: "sessions",
   settings: "settings",
+  notes: "notes",
   meta: "meta",
 } as const;
 
@@ -52,7 +53,9 @@ export async function readSnapshot(): Promise<PersistedSnapshot | null> {
   return {
     tasks: (tasks as KvRecord<Task[]> | undefined)?.value ?? [],
     sessions: (sessions as KvRecord<WorkSession[]> | undefined)?.value ?? [],
-    settings: (settings as KvRecord<{ userName: string }> | undefined)?.value ?? { userName: "Vishal" },
+    settings: (settings as KvRecord<{ userName: string; avatarUrl?: string }> | undefined)?.value ?? {
+      userName: "Vishal",
+    },
   };
 }
 
@@ -63,5 +66,20 @@ export async function writeSnapshot(snapshot: PersistedSnapshot): Promise<void> 
   tx.store.put({ key: KEYS.sessions, value: snapshot.sessions });
   tx.store.put({ key: KEYS.settings, value: snapshot.settings });
   tx.store.put({ key: KEYS.meta, value: { savedAt: Date.now() } });
+  await tx.done;
+}
+
+export async function readNotes(): Promise<Note[] | null> {
+  const db = await getDB();
+  const tx = db.transaction(STORE, "readonly");
+  const notes = await tx.store.get(KEYS.notes);
+  await tx.done;
+  return (notes as KvRecord<Note[]> | undefined)?.value ?? null;
+}
+
+export async function writeNotes(notes: Note[]): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction(STORE, "readwrite");
+  tx.store.put({ key: KEYS.notes, value: notes });
   await tx.done;
 }

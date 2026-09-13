@@ -72,7 +72,7 @@ export function TaskList({ compact }: { compact?: boolean }) {
             const meta = PRIORITY_META[priority];
             const isCollapsed = collapsed.has(priority);
             return (
-              <div key={priority} className="overflow-hidden rounded-[18px] border border-border bg-surface">
+              <div key={priority} className="rounded-[18px] border border-border bg-surface">
                 <button
                   onClick={() => toggle(priority)}
                   aria-expanded={!isCollapsed}

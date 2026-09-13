@@ -70,7 +70,7 @@ export function ProgressRing({
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const offset = c * (1 - show / 100);
-  const angle = (show / 100) * 360 - 90;
+  const angle = (show / 100) * 360;
 
   return (
     <div

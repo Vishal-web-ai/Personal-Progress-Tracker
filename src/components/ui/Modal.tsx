@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,7 @@ export function Modal({ open, onClose, title, children, className, footer }: Mod
 
   if (!open && !closing) return null;
 
-  return (
+  return createPortal(
     <div
       className={cn(
         "fixed inset-0 z-40 flex items-end justify-center sm:items-center",
@@ -55,7 +56,7 @@ export function Modal({ open, onClose, title, children, className, footer }: Mod
       />
       <div
         className={cn(
-          "modal-dialog relative z-10 flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[22px] border border-border bg-surface shadow-2xl sm:max-w-md sm:rounded-[22px]",
+          "modal-dialog relative z-10 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[22px] border border-border bg-surface shadow-2xl sm:max-w-md sm:rounded-[22px]",
           closing && "opacity-0 scale-[0.98] translate-y-1 transition-all duration-150",
           className
         )}
@@ -70,11 +71,12 @@ export function Modal({ open, onClose, title, children, className, footer }: Mod
             <X size={18} />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
         {footer && (
           <div className="border-t border-border-soft px-5 py-4">{footer}</div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

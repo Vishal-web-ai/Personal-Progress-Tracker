@@ -7,6 +7,7 @@ import { useApp } from "@/store/app-store";
 import { useSessionFlow } from "@/components/timer/SessionFlow";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { TaskIcon } from "@/components/ui/TaskIcon";
+import { ParticleBurst } from "@/components/ui/ParticleBurst";
 import { cn } from "@/lib/utils";
 import { PRIORITY_META } from "@/data/initial";
 import { TaskDetailModal } from "./TaskDetailModal";
@@ -30,16 +31,27 @@ export function TaskRow({
 
   const priority = PRIORITY_META[task.priority];
 
+  const [burstCount, setBurstCount] = React.useState(0);
+  const prevDoneRef = React.useRef(done);
+
+  React.useEffect(() => {
+    if (done && !prevDoneRef.current) {
+      setBurstCount((c) => c + 1);
+    }
+    prevDoneRef.current = done;
+  }, [done]);
+
   return (
     <>
       <div
         className={cn(
-          "group flex items-center gap-3.5 rounded-[14px] bg-surface-elevated px-4 transition-colors duration-150",
+          "group relative flex items-center gap-3.5 rounded-[14px] bg-surface-elevated px-4 transition-colors duration-150",
           compact ? "py-2" : "py-3",
           !done && "hover:bg-surface-soft/80",
           task.status === "in_progress" && "ring-1 ring-inset ring-accent/30"
         )}
       >
+        {burstCount > 0 && <ParticleBurst key={burstCount} seed={burstCount} />}
         <button
           onClick={() => setDetailOpen(true)}
           className="flex min-w-0 flex-1 items-center gap-3.5 text-left"

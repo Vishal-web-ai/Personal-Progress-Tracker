@@ -1,12 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useApp } from "@/store/app-store";
 import { greetingForHour } from "@/lib/time";
+import { compressImageToDataUrl } from "@/lib/avatar";
+import { Avatar } from "@/components/ui/Avatar";
 
 export function GreetingHeader({ progressSlot }: { progressSlot?: React.ReactNode }) {
-  const { settings } = useApp();
+  const { settings, updateSettings } = useApp();
   const [now] = useState(() => Date.now());
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handlePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      updateSettings({ avatarUrl: await compressImageToDataUrl(file) });
+    } catch {
+      /* ignore unreadable image */
+    }
+  };
 
   return (
     <header className="motion-stagger">
@@ -19,11 +33,21 @@ export function GreetingHeader({ progressSlot }: { progressSlot?: React.ReactNod
             {settings.userName}!
           </h1>
         </div>
-        <div className="relative h-[52px] w-[52px] shrink-0 rounded-full border-2 border-accent/80">
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-surface-elevated text-[19px] font-bold text-accent">
-            {settings.userName.charAt(0).toUpperCase()}
-          </div>
-        </div>
+        <button
+          onClick={() => inputRef.current?.click()}
+          aria-label="Change profile photo"
+          title="Change photo"
+          className="pressable relative shrink-0"
+        >
+          <Avatar src={settings.avatarUrl} name={settings.userName} size={52} />
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handlePick}
+        />
       </div>
 
       <div className="mt-2.5 md:hidden">{progressSlot}</div>
