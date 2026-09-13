@@ -71,7 +71,10 @@ function migrateTask(raw: Record<string, unknown>): Task {
     description: raw.description as string | undefined,
     areaId: String(raw.areaId ?? ""),
     areaName: String(raw.areaName ?? ""),
-    priority: raw.priority === "high" || raw.priority === "medium" ? raw.priority : "medium",
+    priority:
+      raw.priority === "high" || raw.priority === "medium" || raw.priority === "low"
+        ? raw.priority
+        : "medium",
     status: raw.status === "done" ? "done" : "todo",
     bucket,
     icon: String(raw.icon ?? "cloud"),
