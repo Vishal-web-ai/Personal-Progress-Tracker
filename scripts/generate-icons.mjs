@@ -16,6 +16,9 @@ const smoothstep = (t) => {
   return x * x * (3 - 2 * x);
 };
 
+const ALPHA_STEP = 8;
+const quantizeAlpha = (v) => Math.round(v / ALPHA_STEP) * ALPHA_STEP;
+
 function render(size, { opaque = false, padding = 0 } = {}) {
   const png = new PNG({ width: size, height: size });
   const cx = size / 2;
@@ -59,7 +62,7 @@ function render(size, { opaque = false, padding = 0 } = {}) {
       png.data[idx] = r;
       png.data[idx + 1] = g;
       png.data[idx + 2] = b;
-      png.data[idx + 3] = a;
+      png.data[idx + 3] = quantizeAlpha(a);
     }
   }
   return PNG.sync.write(png);
