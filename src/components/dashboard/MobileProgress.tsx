@@ -68,7 +68,7 @@ export function MobileProgress({ children }: { children?: React.ReactNode }) {
           <div
             data-mprogress-seat
             className={cn(
-              "grid overflow-hidden transition-[grid-template-rows]",
+              "grid grid-cols-[minmax(0,1fr)] overflow-hidden transition-[grid-template-rows]",
               smallHidden ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
             )}
             style={{
@@ -99,7 +99,7 @@ export function MobileProgress({ children }: { children?: React.ReactNode }) {
                   valueClassName="text-[19px]"
                   className="shrink-0"
                 />
-                <span className="flex w-full flex-1 items-stretch gap-2">
+                <span className="flex min-w-0 flex-1 items-stretch gap-2">
                   <Stat value={`${data.today.done} / ${data.today.total}`} label="Daily done" className="flex-1" />
                   <span className="w-px shrink-0 self-stretch bg-border-soft" />
                   <Stat value={`${data.week.done} / ${data.week.total}`} label="Weekly done" className="flex-1" />
@@ -123,7 +123,7 @@ export function MobileProgress({ children }: { children?: React.ReactNode }) {
         data-mprogress-panel
         onTransitionEnd={onPanelTransitionEnd}
         className={cn(
-          "grid overflow-hidden transition-[grid-template-rows] md:hidden",
+          "grid grid-cols-[minmax(0,1fr)] overflow-hidden transition-[grid-template-rows] md:hidden",
           open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         )}
         style={{ transitionDuration: open ? "440ms" : "320ms", transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)" }}

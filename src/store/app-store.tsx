@@ -352,12 +352,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetData: AppContextValue["resetData"] = useCallback(() => {
-    // Wipe tasks & sessions; keep preferences. Fresh starter tasks remain.
+    // Wipe all tasks & sessions; keep preferences.
     setState((s) => {
       if (!s) return s;
       return {
         ...s,
-        tasks: INITIAL_TASKS,
+        tasks: [],
         sessions: [],
       };
     });

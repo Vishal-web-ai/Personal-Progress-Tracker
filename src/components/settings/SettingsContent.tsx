@@ -135,7 +135,7 @@ export function SettingsContent() {
               <Trash2 size={16} /> Clear demo data
             </Button>
             <span className="text-[12px] text-muted">
-              Removes all sessions and completed tasks. Not recoverable.
+              Removes all tasks and sessions. Not recoverable.
             </span>
           </div>
         </div>
