@@ -21,7 +21,7 @@ export function sortByPriority<T extends { priority: Task["priority"]; createdAt
   const order = { high: 0, medium: 1, low: 2 } as const;
   return [...list].sort((a, b) => {
     if (order[a.priority] !== order[b.priority]) return order[a.priority] - order[b.priority];
-    return b.createdAt - a.createdAt;
+    return a.createdAt - b.createdAt;
   });
 }
 

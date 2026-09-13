@@ -25,7 +25,7 @@ export function TaskList({ compact }: { compact?: boolean }) {
     .sort((a, b) => {
       const order = { high: 0, medium: 1, low: 2 } as const;
       if (order[a.priority] !== order[b.priority]) return order[a.priority] - order[b.priority];
-      return b.createdAt - a.createdAt;
+      return a.createdAt - b.createdAt;
     });
 
   const groups = ORDER.map((p) => ({
