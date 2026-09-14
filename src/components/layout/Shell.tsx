@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Sidebar, BottomNav } from "@/components/navigation/Navigation";
+import { DayCelebration } from "@/components/celebration/DayCelebration";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -13,6 +14,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <BottomNav />
+      <DayCelebration />
     </div>
   );
 }

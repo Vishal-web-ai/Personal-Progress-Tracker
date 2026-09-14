@@ -14,8 +14,9 @@ import {
 } from "lucide-react";
 import { useNotes } from "@/store/notes-store";
 import { cn } from "@/lib/utils";
-import { formatTime, plainText } from "@/lib/notes";
+import { formatTime, noteColor, plainText } from "@/lib/notes";
 import type { Note } from "@/types";
+import { NOTE_TINT } from "@/lib/notes";
 
 export function NotesContent() {
   const { notes, removeNote, togglePin } = useNotes();
@@ -146,18 +147,20 @@ function NoteCard({
   onDelete: () => void;
 }) {
   const plain = plainText(note.content);
+  const tint = NOTE_TINT[noteColor(note)];
 
   return (
     <div
       className={cn(
-        "group rounded-[18px] border bg-surface p-4 transition-colors",
-        note.pinned ? "border-accent/30" : "border-border"
+        "group rounded-[18px] border p-4 transition-colors",
+        tint.card,
+        note.pinned ? tint.borderActive : tint.border
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <Link href={`/notes?note=${note.id}`} className="min-w-0 flex-1 text-left">
           <div className="flex items-center gap-2">
-            {note.pinned && <Pin size={12} className="shrink-0 text-accent" />}
+            {note.pinned && <Pin size={12} className={cn("shrink-0", tint.accent)} />}
             <h3 className="truncate text-[15px] font-semibold text-primary">
               {note.title || "Untitled"}
             </h3>
@@ -178,7 +181,7 @@ function NoteCard({
         <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100 max-sm:opacity-100">
           <button
             onClick={onTogglePin}
-            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-elevated hover:text-primary"
+            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/5 hover:text-primary"
             aria-label={note.pinned ? "Unpin" : "Pin"}
           >
             {note.pinned ? <PinOff size={14} /> : <Pin size={14} />}

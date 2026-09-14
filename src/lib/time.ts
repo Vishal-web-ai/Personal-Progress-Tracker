@@ -14,9 +14,59 @@ export function addDaysKey(key: string, delta: number): string {
   return dayKey(new Date(y, m - 1, d + delta));
 }
 
+/** Week of the month (1–5), Monday-based. Week 1 is the one containing the 1st. */
+export function weekOfMonth(d: Date): number {
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const offset = (first.getDay() + 6) % 7; // Mon = 0 … Sun = 6
+  return Math.max(1, Math.ceil((d.getDate() + offset) / 7));
+}
+
+/** Calendar range of a given week within `d`'s month, clamped to the month bounds. */
+export function weekRange(week: number, d: Date): { start: Date; end: Date } {
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const offset = (first.getDay() + 6) % 7; // Mon = 0 … Sun = 6
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const rawFrom = 1 + (week - 1) * 7 - offset;
+  const rawTo = rawFrom + 6;
+  const from = Math.max(1, Math.min(rawFrom, lastDay));
+  const to = Math.min(lastDay, Math.max(1, rawTo));
+  return {
+    start: new Date(d.getFullYear(), d.getMonth(), from),
+    end: new Date(d.getFullYear(), d.getMonth(), to),
+  };
+}
+
 export function formatDayKey(key: string): string {
   const [y, m, d] = key.split("-").map(Number);
   return formatDayLabel(new Date(y, m - 1, d).getTime());
+}
+
+/** Renders a week-start day key as a span caption, e.g. "Sep 15 – 21". */
+export function formatWeekSpan(startKey: string): string {
+  const endKey = addDaysKey(startKey, 6);
+  const [y, m, d] = startKey.split("-").map(Number);
+  const [ey, em, ed] = endKey.split("-").map(Number);
+  const start = new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (y === ey && m === em) return `${start} – ${ed}`;
+  const end = new Date(ey, em - 1, ed).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${start} – ${end}`;
+}
+
+/** "YYYY-MM" month key derived from a Date. */
+export function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** "September 2026" label from a "YYYY-MM" key. */
+export function monthLabel(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  return `${MONTHS[m - 1]} ${y}`;
+}
+
+/** Shift a "YYYY-MM" key by `delta` months. */
+export function addMonthsKey(key: string, delta: number): string {
+  const [y, m] = key.split("-").map(Number);
+  return monthKey(new Date(y, m - 1 + delta, 1));
 }
 
 export function startOfDay(d: Date): number {

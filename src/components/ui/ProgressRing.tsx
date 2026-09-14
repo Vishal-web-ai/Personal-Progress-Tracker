@@ -13,6 +13,7 @@ interface ProgressRingProps {
   showValue?: boolean;
   valueClassName?: string;
   trackOpacity?: number;
+  accent?: string; // css color; defaults to the lime --accent
 }
 
 function prefersReducedMotion(): boolean {
@@ -34,6 +35,7 @@ export function ProgressRing({
   showValue = true,
   valueClassName,
   trackOpacity = 1,
+  accent = "var(--accent)",
 }: ProgressRingProps) {
   const clamped = Math.max(0, Math.min(100, value));
   const [reduced] = useState(() => prefersReducedMotion());
@@ -94,14 +96,14 @@ export function ProgressRing({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="var(--accent)"
+          stroke={accent}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={offset}
         />
         {/* tick at the current value */}
-        <CircleMarker size={size} r={r} angle={angle} />
+        <CircleMarker size={size} r={r} angle={angle} accent={accent} />
       </svg>
       {showValue && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
@@ -115,7 +117,11 @@ export function ProgressRing({
             {Math.round(show)}
             <span className="text-[0.6em] align-baseline">%</span>
           </span>
-          {show >= 95 && <span className="mt-0.5 text-[10px] italic text-accent">done</span>}
+          {show >= 95 && (
+            <span className="mt-0.5 text-[10px] italic" style={{ color: accent }}>
+              done
+            </span>
+          )}
           {label && (
             <span className="mt-1.5 text-[12px] text-secondary">{label}</span>
           )}
@@ -128,7 +134,17 @@ export function ProgressRing({
   );
 }
 
-function CircleMarker({ size, r, angle }: { size: number; r: number; angle: number }) {
+function CircleMarker({
+  size,
+  r,
+  angle,
+  accent,
+}: {
+  size: number;
+  r: number;
+  angle: number;
+  accent: string;
+}) {
   const rad = (angle * Math.PI) / 180;
   const cx = size / 2 + r * Math.cos(rad);
   const cy = size / 2 + r * Math.sin(rad);
@@ -137,7 +153,7 @@ function CircleMarker({ size, r, angle }: { size: number; r: number; angle: numb
       cx={cx}
       cy={cy}
       r={5}
-      fill="var(--accent)"
+      fill={accent}
       stroke="var(--background)"
       strokeWidth={3}
       className="transition-[cx,cy] duration-700 ease-out"

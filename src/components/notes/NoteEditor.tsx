@@ -22,18 +22,20 @@ import {
 } from "lucide-react";
 import { useNotes } from "@/store/notes-store";
 import { cn } from "@/lib/utils";
+import { NOTE_COLORS, NOTE_TINT } from "@/lib/notes";
 import type { Note } from "@/types";
 
 export function NoteEditor({ note }: { note: Note | null }) {
   const { addNote, updateNote } = useNotes();
   const router = useRouter();
   const [title, setTitle] = useState(note?.title ?? "");
+  const [color, setColor] = useState<string | undefined>(note?.color);
   const [listStyle, setListStyle] = useState("bullet");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [, setTick] = useState(0);
 
   const titleRef = useRef<HTMLInputElement>(null);
-  const draftRef = useRef({ title: note?.title ?? "", content: note?.content ?? "" });
+  const draftRef = useRef({ title: note?.title ?? "", content: note?.content ?? "", color: note?.color });
   const savedIdRef = useRef<string | null>(note?.id ?? null);
   const timerRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
@@ -60,13 +62,13 @@ export function NoteEditor({ note }: { note: Note | null }) {
   const close = useCallback(() => router.back(), [router]);
 
   const persist = useCallback(() => {
-    const { title: t, content } = draftRef.current;
+    const { title: t, content, color: c } = draftRef.current;
     if (!t.trim() && !content.replace(/<[^>]+>/g, "").trim()) return;
     const finalTitle = t.trim() || "Untitled";
     if (savedIdRef.current) {
-      updateNote(savedIdRef.current, { title: finalTitle, content });
+      updateNote(savedIdRef.current, { title: finalTitle, content, color: c });
     } else {
-      const created = addNote(finalTitle, content);
+      const created = addNote(finalTitle, content, c);
       savedIdRef.current = created.id;
       if (mountedRef.current) {
         router.replace(`/notes?note=${created.id}&edit`);
@@ -128,6 +130,16 @@ export function NoteEditor({ note }: { note: Note | null }) {
 
   const charCount = editor ? editor.getText().length : 0;
 
+  const handleColorSelect = useCallback(
+    (key: string | undefined) => {
+      const next = key === undefined ? undefined : color === key ? undefined : key;
+      setColor(next);
+      draftRef.current.color = next;
+      scheduleSave();
+    },
+    [color, scheduleSave]
+  );
+
   return (
     <div
       className="mx-auto flex w-full max-w-[640px] flex-col rounded-[22px] border border-border bg-surface p-4 sm:p-5"
@@ -154,6 +166,48 @@ export function NoteEditor({ note }: { note: Note | null }) {
           }}
           className="w-full bg-transparent text-[20px] font-bold text-primary placeholder:text-muted focus:outline-none"
         />
+      </div>
+
+      {/* Color picker */}
+      <div
+        className="mt-2 flex items-center gap-1.5"
+        role="radiogroup"
+        aria-label="Note color"
+      >
+        <button
+          onClick={() => handleColorSelect(undefined)}
+          aria-label="Auto color"
+          aria-pressed={color === undefined}
+          title="Auto color"
+          className={cn(
+            "relative h-5 w-5 rounded-full transition-transform hover:scale-110",
+            color === undefined && "ring-2 ring-white/50 ring-offset-2 ring-offset-surface"
+          )}
+        >
+          <span
+            className="block h-full w-full rounded-full"
+            style={{
+              backgroundImage:
+                "conic-gradient(#b8ff4a, #4cc9ff, #e8c85a, #e8b25a, #a78bfa, #b8ff4a)",
+            }}
+          />
+        </button>
+        <span className="mx-0.5 h-4 w-px bg-border-soft" aria-hidden="true" />
+        {NOTE_COLORS.map((key) => (
+          <button
+            key={key}
+            onClick={() => handleColorSelect(key)}
+            aria-label={`${key} color`}
+            aria-pressed={color === key}
+            title={`${key} color`}
+            className={cn(
+              "h-5 w-5 rounded-full transition-transform hover:scale-110",
+              NOTE_TINT[key].swatch,
+              color === key && "ring-2 ring-white/50 ring-offset-2 ring-offset-surface"
+            )}
+          />
+        ))}
+        <span className="ml-auto text-[11px] text-muted">{color ?? "auto"}</span>
       </div>
 
       {/* Toolbar */}

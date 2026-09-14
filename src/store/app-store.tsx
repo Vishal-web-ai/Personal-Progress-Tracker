@@ -12,13 +12,14 @@ import React, {
 import type { Area, Task, TaskBucket, WorkSession } from "@/types";
 import { AREAS, INITIAL_TASKS, buildSeedSessions } from "@/data/initial";
 import { buildSampleData } from "@/data/sample";
-import { dayKey, dayKeyFor } from "@/lib/time";
+import { dayKey, dayKeyFor, monthKey, weekRange } from "@/lib/time";
 import { readSnapshot, writeSnapshot } from "@/lib/db";
 
 interface AppSettings {
   userName: string;
   avatarUrl?: string;
   areas: Area[];
+  celebrationSound: boolean;
 }
 
 interface AppState {
@@ -50,21 +51,40 @@ const DEFAULT_SETTINGS: AppSettings = {
   userName: "Vishal",
   avatarUrl: undefined,
   areas: [],
+  celebrationSound: true,
 };
 
 /** Default icons handed to new custom areas, cycled so siblings stay distinct. */
 const CUSTOM_AREA_ICONS = ["brain", "wrench", "target", "music", "trending", "container", "mic", "grad"];
 
 /** Older persisted tasks used `due` ("today" | "this_week" | "later") and
- *  `estimatedMinutes`. Map them into the current bucket model. */
+ *  `estimatedMinutes`. Map them into the current bucket model, preserving the
+ *  explicit `bucket` newer records carry. */
 function migrateTask(raw: Record<string, unknown>): Task {
   const due = raw.due;
-  const bucket: TaskBucket =
-    due === "today" || due === undefined
-      ? "daily"
-      : due === "this_week"
-        ? "weekly"
-        : "monthly";
+  const rawBucket = raw.bucket;
+  // New records store `bucket` directly; older data mapped `due` → bucket.
+  let bucket: TaskBucket =
+    rawBucket === "daily" || rawBucket === "weekly" || rawBucket === "monthly"
+      ? rawBucket
+      : due === "today" || due === undefined
+        ? "daily"
+        : due === "this_week"
+          ? "weekly"
+          : "monthly";
+
+  const weekStart =
+    typeof raw.weekStart === "string"
+      ? raw.weekStart
+      : typeof raw.week === "number" && raw.week >= 1 && raw.week <= 5
+        ? dayKey(weekRange(Math.round(raw.week), new Date()).start)
+        : undefined;
+
+  // Heal records that were prematurely re-bucketed to daily while still
+  // carrying their weekly/monthly scope markers.
+  if (bucket === "daily" && typeof raw.monthKey === "string") bucket = "monthly";
+  else if (bucket === "daily" && weekStart) bucket = "weekly";
+
   return {
     id: String(raw.id ?? ""),
     title: String(raw.title ?? ""),
@@ -80,19 +100,34 @@ function migrateTask(raw: Record<string, unknown>): Task {
     icon: String(raw.icon ?? "cloud"),
     goalId: raw.goalId as string | undefined,
     day: typeof raw.day === "string" ? raw.day : dayKeyFor(),
+    weekStart,
+    // Monthly tasks without an explicit month default to the current month so
+    // legacy data keeps a home.
+    monthKey:
+      typeof raw.monthKey === "string"
+        ? raw.monthKey
+        : bucket === "monthly"
+          ? monthKey(new Date())
+          : undefined,
     archived: Boolean(raw.archived),
     completedAt: raw.completedAt as number | undefined,
     createdAt: (raw.createdAt as number) ?? Date.now(),
   };
 }
 
-/** Archive daily tasks whose calendar day is behind today. */
+/** Archive daily tasks whose calendar day is behind today, and roll incomplete
+ *  monthly tasks forward to the current month. */
 function rolloverTasks(tasks: Task[], today: string = dayKey(new Date())): Task[] {
-  return tasks.map((t) =>
-    t.bucket === "daily" && t.day && t.day < today && !t.archived
-      ? { ...t, archived: true }
-      : t
-  );
+  const thisMonth = monthKey(new Date());
+  return tasks.map((t) => {
+    if (t.bucket === "daily" && t.day && t.day < today && !t.archived) {
+      return { ...t, archived: true };
+    }
+    if (t.bucket === "monthly" && t.monthKey && t.monthKey < thisMonth && !t.archived && t.status !== "done") {
+      return { ...t, monthKey: thisMonth };
+    }
+    return t;
+  });
 }
 
 const AppContext = createContext<AppContextValue | null>(null);

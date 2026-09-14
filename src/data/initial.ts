@@ -1,5 +1,5 @@
 import type { Area, Task, WorkSession } from "@/types";
-import { dayKeyFor } from "@/lib/time";
+import { dayKey, dayKeyFor, monthKey, weekOfMonth, weekRange } from "@/lib/time";
 
 export const AREAS: Area[] = [
   { id: "cloud", name: "Cloud Engineering", icon: "cloud" },
@@ -91,6 +91,7 @@ export const INITIAL_TASKS: Task[] = [
     status: "todo",
     bucket: "weekly",
     icon: "laptop",
+    weekStart: dayKey(weekRange(weekOfMonth(new Date()), new Date()).start),
     createdAt: Date.now() - 86400000,
   },
   {
@@ -102,6 +103,7 @@ export const INITIAL_TASKS: Task[] = [
     status: "done",
     bucket: "weekly",
     icon: "book",
+    weekStart: dayKey(weekRange(weekOfMonth(new Date()), new Date()).start),
     completedAt: Date.now() - 2 * 86400000,
     createdAt: Date.now() - 86400000,
   },
@@ -114,6 +116,7 @@ export const INITIAL_TASKS: Task[] = [
     status: "done",
     bucket: "weekly",
     icon: "pen",
+    weekStart: dayKey(weekRange(weekOfMonth(new Date()), new Date()).start),
     completedAt: Date.now() - 5 * 86400000,
     createdAt: Date.now() - 86400000,
   },
@@ -127,6 +130,7 @@ export const INITIAL_TASKS: Task[] = [
     status: "todo",
     bucket: "monthly",
     icon: "grad",
+    monthKey: monthKey(new Date()),
     createdAt: Date.now() - 86400000,
   },
   {
@@ -138,6 +142,7 @@ export const INITIAL_TASKS: Task[] = [
     status: "todo",
     bucket: "monthly",
     icon: "code",
+    monthKey: monthKey(new Date()),
     createdAt: Date.now() - 86400000,
   },
   {
@@ -149,6 +154,7 @@ export const INITIAL_TASKS: Task[] = [
     status: "done",
     bucket: "monthly",
     icon: "book",
+    monthKey: monthKey(new Date()),
     completedAt: Date.now() - 12 * 86400000,
     createdAt: Date.now() - 86400000,
   },

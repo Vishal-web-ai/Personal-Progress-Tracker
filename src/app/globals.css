@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: dark;
   --background: #061b14;
   --background-deep: #04140f;
 
@@ -19,11 +20,37 @@
   --accent-soft: #8edc45;
   --accent-dark: #4f8c32;
 
+  --sky: #4cc9ff;
+  --sky-soft: #2fb7ea;
+
+  --violet: #a78bfa;
+  --violet-soft: #8979f2;
+
   --priority-high: #ff6b6b;
   --priority-medium: #e8c85a;
   --priority-low: #6fde78;
 
   --ring-track: #203a31;
+
+  --note-mint: #0b241c;
+  --note-mint-border: #24483c;
+  --note-mint-swatch: #b8ff4a;
+
+  --note-teal: #0d2b27;
+  --note-teal-border: #1e4a44;
+  --note-teal-swatch: #4cc9ff;
+
+  --note-tan: #2a2411;
+  --note-tan-border: #4a4322;
+  --note-tan-swatch: #e8b25a;
+
+  --note-sand: #2a2317;
+  --note-sand-border: #4a412c;
+  --note-sand-swatch: #e8c85a;
+
+  --note-violet: #251d33;
+  --note-violet-border: #433462;
+  --note-violet-swatch: #a78bfa;
 }
 
 @theme inline {
@@ -41,11 +68,35 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-accent-dark: var(--accent-dark);
+  --color-sky: var(--sky);
+  --color-sky-soft: var(--sky-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
   --color-high: var(--priority-high);
   --color-medium: var(--priority-medium);
   --color-low: var(--priority-low);
   --color-ring-track: var(--ring-track);
   --font-sans: var(--font-inter);
+
+  --color-note-mint: var(--note-mint);
+  --color-note-mint-border: var(--note-mint-border);
+  --color-note-mint-swatch: var(--note-mint-swatch);
+
+  --color-note-teal: var(--note-teal);
+  --color-note-teal-border: var(--note-teal-border);
+  --color-note-teal-swatch: var(--note-teal-swatch);
+
+  --color-note-tan: var(--note-tan);
+  --color-note-tan-border: var(--note-tan-border);
+  --color-note-tan-swatch: var(--note-tan-swatch);
+
+  --color-note-sand: var(--note-sand);
+  --color-note-sand-border: var(--note-sand-border);
+  --color-note-sand-swatch: var(--note-sand-swatch);
+
+  --color-note-violet: var(--note-violet);
+  --color-note-violet-border: var(--note-violet-border);
+  --color-note-violet-swatch: var(--note-violet-swatch);
 }
 
 @layer base {
@@ -243,6 +294,44 @@ body {
   100% {
     transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) rotate(var(--rz)) scale(0.6);
     opacity: 0;
+  }
+}
+
+/* Day-complete celebration confetti (full-viewport rain) */
+.confetti-rain {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 60;
+}
+.confetti-rain span {
+  position: absolute;
+  left: 50%;
+  top: 6%;
+  border-radius: 2px;
+  animation: confetti-drop 3s cubic-bezier(0.22, 0.65, 0.4, 1) 0s both;
+  will-change: transform, opacity;
+}
+.confetti-rain span.spark {
+  border-radius: 9999px;
+  box-shadow: 0 0 10px 2px rgba(184, 255, 74, 0.7);
+}
+@keyframes confetti-drop {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  24% {
+    transform: translate(-50%, -50%) translate(var(--ax), var(--ay)) rotate(calc(var(--rz) * 0.32));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(var(--ex), var(--ey)) rotate(var(--rz));
+    opacity: 0.75;
   }
 }
 

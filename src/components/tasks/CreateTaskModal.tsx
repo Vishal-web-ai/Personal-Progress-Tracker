@@ -8,8 +8,11 @@ import { useToast } from "@/store/toast-store";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select, Textarea } from "@/components/ui/Form";
+import { WeekPicker } from "@/components/ui/WeekPicker";
+import { MonthPicker } from "@/components/ui/MonthPicker";
 import { TaskIcon } from "@/components/ui/TaskIcon";
 import { cn } from "@/lib/utils";
+import { dayKeyFor, monthKey } from "@/lib/time";
 import { Check, Plus } from "lucide-react";
 
 const PRIORITIES: { value: Priority; label: string; dot: string }[] = [
@@ -31,11 +34,15 @@ export function CreateTaskModal({
   onClose,
   defaultAreaId,
   defaultBucket = "daily",
+  defaultWeekStart,
+  defaultMonthKey,
 }: {
   open: boolean;
   onClose: () => void;
   defaultAreaId?: string;
   defaultBucket?: TaskBucket;
+  defaultWeekStart?: string;
+  defaultMonthKey?: string;
 }) {
   const { addTask, addArea, removeArea, settings } = useApp();
   const { toast } = useToast();
@@ -44,6 +51,8 @@ export function CreateTaskModal({
   const [areaId, setAreaId] = useState(defaultAreaId ?? AREAS[0].id);
   const [priority, setPriority] = useState<Priority>("medium");
   const [bucket, setBucket] = useState<TaskBucket>(defaultBucket);
+  const [weekStart, setWeekStart] = useState<string>(defaultWeekStart ?? dayKeyFor());
+  const [taskMonth, setTaskMonth] = useState<string>(defaultMonthKey ?? monthKey(new Date()));
   const [icon, setIcon] = useState("cloud");
   const [description, setDescription] = useState("");
   const [isAddingArea, setIsAddingArea] = useState(false);
@@ -78,6 +87,8 @@ export function CreateTaskModal({
       setAreaId(defaultAreaId ?? allAreas[0]?.id ?? AREAS[0].id);
       setPriority("medium");
       setBucket(defaultBucket);
+      setWeekStart(defaultWeekStart ?? dayKeyFor());
+      setTaskMonth(defaultMonthKey ?? monthKey(new Date()));
       setDescription("");
       setIsAddingArea(false);
       setNewAreaName("");
@@ -110,6 +121,8 @@ export function CreateTaskModal({
       priority,
       bucket,
       icon,
+      weekStart: bucket === "weekly" ? weekStart || dayKeyFor() : undefined,
+      monthKey: bucket === "monthly" ? taskMonth || monthKey(new Date()) : undefined,
     });
     toast(`Task created · ${title.trim()}`);
     onClose();
@@ -224,6 +237,18 @@ export function CreateTaskModal({
             />
           </Field>
         </div>
+
+        {bucket === "weekly" && (
+          <Field label="Week starts">
+            <WeekPicker value={weekStart} onChange={setWeekStart} />
+          </Field>
+        )}
+
+        {bucket === "monthly" && (
+          <Field label="Month">
+            <MonthPicker value={taskMonth} onChange={setTaskMonth} />
+          </Field>
+        )}
 
         <Field label="Priority">
           <div className="flex gap-2">

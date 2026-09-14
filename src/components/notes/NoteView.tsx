@@ -4,14 +4,16 @@ import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Pin, Pencil } from "lucide-react";
-import { formatTime, plainText } from "@/lib/notes";
+import { formatTime, noteColor, NOTE_TINT, plainText } from "@/lib/notes";
 import { useNotes } from "@/store/notes-store";
+import { cn } from "@/lib/utils";
 import type { Note } from "@/types";
 
 export function NoteView({ note }: { note: Note }) {
   const router = useRouter();
   const contentRef = useRef<HTMLDivElement>(null);
   const { updateNote } = useNotes();
+  const tint = NOTE_TINT[noteColor(note)];
   const [isTouch] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
   );
@@ -42,9 +44,15 @@ export function NoteView({ note }: { note: Note }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[640px] flex-col rounded-[22px] border border-border bg-surface p-4 sm:p-5">
+    <div
+      className={cn(
+        "mx-auto flex w-full max-w-[640px] flex-col rounded-[22px] border p-4 sm:p-5",
+        tint.card,
+        tint.border
+      )}
+    >
       {/* Header: back + title + edit */}
-      <div className="flex items-center gap-3 border-b border-border-soft pb-3">
+      <div className="flex items-center gap-3 border-b border-white/10 pb-3">
         <button
           onClick={() => router.back()}
           aria-label="Back to notes"
@@ -79,7 +87,7 @@ export function NoteView({ note }: { note: Note }) {
       </div>
 
       {/* Footer meta */}
-      <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border-soft pt-3.5 text-[12px] text-muted">
+      <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-white/10 pt-3.5 text-[12px] text-muted">
         <span>
           Updated{" "}
           <time dateTime={new Date(note.updatedAt).toISOString()}>{formatTime(note.updatedAt)}</time>

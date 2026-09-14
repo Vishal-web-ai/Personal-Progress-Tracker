@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Database, SlidersHorizontal, Trash2, Sparkles, FlaskConical, Camera } from "lucide-react";
+import { Database, SlidersHorizontal, Trash2, Sparkles, FlaskConical, Camera, Volume2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useApp } from "@/store/app-store";
 import { useToast } from "@/store/toast-store";
 import { Field, Input } from "@/components/ui/Form";
@@ -90,6 +91,37 @@ export function SettingsContent() {
           <Field label="Your name">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Vishal" />
           </Field>
+          <div className="flex items-center justify-between gap-4 rounded-[16px] border border-border-soft bg-surface-elevated px-4 py-3.5">
+            <div className="flex items-start gap-3">
+              <Volume2 size={18} className="mt-0.5 shrink-0 text-accent" />
+              <div>
+                <p className="text-[14px] font-medium text-primary">Completion sound</p>
+                <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
+                  Plays a short fanfare when all of today&apos;s tasks are done.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={settings.celebrationSound}
+              aria-label="Toggle completion sound"
+              onClick={() => updateSettings({ celebrationSound: !settings.celebrationSound })}
+              className={cn(
+                "pressable relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-150",
+                settings.celebrationSound
+                  ? "border-accent/60 bg-accent/15"
+                  : "border-border bg-surface-soft"
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute left-0.5 top-0.5 h-[22px] w-[22px] rounded-full transition-transform duration-150",
+                  settings.celebrationSound ? "translate-x-5 bg-accent" : "bg-muted"
+                )}
+              />
+            </button>
+          </div>
           <Button variant="primary" onClick={savePreferences}>
             Save preferences
           </Button>

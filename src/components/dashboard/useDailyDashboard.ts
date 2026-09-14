@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useApp } from "@/store/app-store";
-import { bucketProgress, currentStreakDays } from "@/lib/metrics";
+import { bucketProgress, currentMonthProgress, currentStreakDays, currentWeekProgress } from "@/lib/metrics";
 import type { BucketProgress } from "@/lib/metrics";
 
 export interface DailyProgressData {
@@ -14,14 +14,15 @@ export interface DailyProgressData {
 }
 
 /** Single source of truth for the dashboard progress metrics.
- *  Everything here is derived from task checkmarks — no session math. */
+ *  Everything here is derived from task checkmarks — no session math.
+ *  Weekly/monthly are scoped to the current week / current month. */
 export function useDailyDashboard(): DailyProgressData {
   const { tasks } = useApp();
 
   return useMemo(() => {
     const today = bucketProgress(tasks, "daily");
-    const week = bucketProgress(tasks, "weekly");
-    const month = bucketProgress(tasks, "monthly");
+    const week = currentWeekProgress(tasks);
+    const month = currentMonthProgress(tasks);
     const streak = currentStreakDays(tasks);
     return {
       today,

@@ -1,5 +1,5 @@
 import type { Task, TaskBucket } from "@/types";
-import { dayKey, startOfDay } from "@/lib/time";
+import { addDaysKey, dayKey, monthKey, startOfDay, startOfWeek } from "@/lib/time";
 
 export interface BucketProgress {
   done: number;
@@ -7,15 +7,40 @@ export interface BucketProgress {
   pct: number;
 }
 
-export function bucketProgress(tasks: Task[], bucket: TaskBucket): BucketProgress {
-  const today = bucket === "daily" ? dayKey(new Date()) : undefined;
-  const list = tasks.filter(
-    (t) =>
-      t.bucket === bucket && !t.archived && (today === undefined || t.day === today)
-  );
+function progressOf(list: Task[]): BucketProgress {
   const total = list.length;
   const done = list.filter((t) => t.status === "done").length;
   return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) };
+}
+
+export function bucketProgress(tasks: Task[], bucket: TaskBucket): BucketProgress {
+  const today = bucket === "daily" ? dayKey(new Date()) : undefined;
+  return progressOf(
+    tasks.filter(
+      (t) =>
+        t.bucket === bucket && !t.archived && (today === undefined || t.day === today)
+    )
+  );
+}
+
+/** Weekly tasks whose weekStart falls inside this week (Mon–Sun of `now`). */
+export function currentWeekProgress(tasks: Task[], now: Date = new Date()): BucketProgress {
+  const start = dayKey(new Date(startOfWeek(now)));
+  const end = addDaysKey(start, 6);
+  return progressOf(
+    tasks.filter(
+      (t) =>
+        t.bucket === "weekly" && !t.archived && t.weekStart && t.weekStart >= start && t.weekStart <= end
+    )
+  );
+}
+
+/** Monthly tasks whose monthKey is the current month. */
+export function currentMonthProgress(tasks: Task[], now: Date = new Date()): BucketProgress {
+  const thisMonth = monthKey(now);
+  return progressOf(
+    tasks.filter((t) => t.bucket === "monthly" && !t.archived && t.monthKey === thisMonth)
+  );
 }
 
 export function currentStreakDays(tasks: Task[], reference: number = Date.now()): number {

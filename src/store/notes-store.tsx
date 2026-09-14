@@ -13,8 +13,8 @@ import { readNotes, writeNotes } from "@/lib/db";
 
 interface NotesContextValue {
   notes: Note[];
-  addNote: (title: string, content: string) => Note;
-  updateNote: (id: string, patch: Partial<Pick<Note, "title" | "content" | "pinned">>) => void;
+  addNote: (title: string, content: string, color?: string) => Note;
+  updateNote: (id: string, patch: Partial<Pick<Note, "title" | "content" | "pinned" | "color">>) => void;
   removeNote: (id: string) => void;
   togglePin: (id: string) => void;
 }
@@ -68,13 +68,14 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     void writeNotes(notes);
   }, [notes, ready]);
 
-  const addNote = useCallback((title: string, content: string): Note => {
+  const addNote = useCallback((title: string, content: string, color?: string): Note => {
     const now = Date.now();
     const note: Note = {
       id: `n-${now}-${Math.random().toString(36).slice(2, 7)}`,
       title,
       content,
       pinned: false,
+      color,
       createdAt: now,
       updatedAt: now,
     };
@@ -83,7 +84,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateNote = useCallback(
-    (id: string, patch: Partial<Pick<Note, "title" | "content" | "pinned">>) => {
+    (id: string, patch: Partial<Pick<Note, "title" | "content" | "pinned" | "color">>) => {
       setNotes((prev) =>
         prev.map((n) =>
           n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n

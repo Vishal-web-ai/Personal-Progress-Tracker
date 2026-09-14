@@ -16,6 +16,8 @@ export interface Task {
   icon: string;
   goalId?: string;
   day?: string;
+  weekStart?: string;
+  monthKey?: string;
   archived?: boolean;
   completedAt?: number;
   createdAt: number;
@@ -56,6 +58,7 @@ export interface Note {
   title: string;
   content: string;
   pinned: boolean;
+  color?: string;
   createdAt: number;
   updatedAt: number;
 }
