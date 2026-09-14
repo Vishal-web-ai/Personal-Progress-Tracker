@@ -39,7 +39,7 @@ interface AppContextValue {
   setTaskStatus: (id: string, status: Task["status"]) => void;
   saveSession: (session: Omit<WorkSession, "id" | "status"> & { status?: WorkSession["status"] }) => void;
   updateSettings: (patch: Partial<AppSettings>) => void;
-  reAddTask: (id: string) => void;
+  reAddTask: (id: string, day?: string) => void;
   resetData: () => void;
   loadSampleData: () => void;
 }
@@ -324,25 +324,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const reAddTask: AppContextValue["reAddTask"] = useCallback((id) => {
+  const reAddTask: AppContextValue["reAddTask"] = useCallback((id, day = dayKey(new Date())) => {
     setState((s) => {
       if (!s) return s;
       const src = s.tasks.find((t) => t.id === id);
       if (!src || src.bucket !== "daily") return s;
       return {
         ...s,
-        tasks: [
-          {
-            ...src,
-            id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            status: "todo",
-            completedAt: undefined,
-            day: dayKey(new Date()),
-            archived: false,
-            createdAt: Date.now(),
-          },
-          ...s.tasks,
-        ],
+        tasks: s.tasks.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                status: "todo",
+                completedAt: undefined,
+                day,
+                archived: false,
+              }
+            : t
+        ),
       };
     });
   }, []);

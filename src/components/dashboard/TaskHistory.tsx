@@ -1,54 +1,149 @@
 "use client";
 
-import React from "react";
-import { RotateCcw } from "lucide-react";
+import React, { useState } from "react";
+import { CalendarClock, Check, RotateCcw, X } from "lucide-react";
 import type { Task } from "@/types";
 import { useApp } from "@/store/app-store";
+import { useToast } from "@/store/toast-store";
 import { TaskIcon } from "@/components/ui/TaskIcon";
+import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { Field, Input } from "@/components/ui/Form";
 import { cn } from "@/lib/utils";
-import { dayKey, addDaysKey, formatDayKey } from "@/lib/time";
+import { dayKey, addDaysKey, formatDayKey, formatFullDate } from "@/lib/time";
 
-function ArchivedTaskRow({ task }: { task: Task }) {
+function ScheduleMissedTaskModal({
+  task,
+  onClose,
+}: {
+  task: Task;
+  onClose: () => void;
+}) {
   const { reAddTask } = useApp();
-  const done = task.status === "done";
+  const { toast } = useToast();
+  const today = dayKey(new Date());
+  const [date, setDate] = useState(today);
+
+  const submit = () => {
+    if (!date || date < today) return;
+    reAddTask(task.id, date);
+    toast(`Re-added · ${task.title} · ${formatFullDate(new Date(`${date}T00:00:00`).getTime())}`);
+    onClose();
+  };
 
   return (
-    <div className="group flex items-center gap-3.5 rounded-[14px] bg-surface-elevated px-4 py-2.5">
-      <div
-        className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-surface-soft",
-          done ? "text-muted/70" : "text-secondary"
-        )}
-      >
-        <TaskIcon name={task.icon} size={18} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "truncate text-[15px] leading-[21px]",
-              done ? "text-muted line-through" : "font-medium text-primary"
-            )}
-          >
-            {task.title}
-          </span>
-          {!done && (
-            <span className="shrink-0 rounded-full bg-surface-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
-              Missed
-            </span>
-          )}
+    <Modal
+      open
+      onClose={onClose}
+      title="Re-add on another day"
+      footer={
+        <div className="flex gap-2">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" className="flex-1" disabled={!date || date < today} onClick={submit}>
+            <Check size={16} /> Re-add
+          </Button>
         </div>
-        <div className="mt-0.5 truncate text-[12px] leading-[18px] text-muted">{task.areaName}</div>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-surface-soft text-secondary">
+            <TaskIcon name={task.icon} size={16} />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-medium text-primary">{task.title}</p>
+            <p className="truncate text-[12px] text-muted">{task.areaName}</p>
+          </div>
+        </div>
+        <Field label="Schedule for" hint="The task will appear in your list on this day.">
+          <Input
+            type="date"
+            className="[color-scheme:dark]"
+            min={today}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </Field>
       </div>
-      <button
-        onClick={() => reAddTask(task.id)}
-        aria-label={`Re-add ${task.title} for today`}
-        title="Re-add for today"
-        className="pressable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface-soft text-primary transition-colors duration-150 hover:bg-accent/15 hover:text-accent md:opacity-0 md:group-hover:opacity-100"
-      >
-        <RotateCcw size={15} strokeWidth={2.2} />
-      </button>
-    </div>
+    </Modal>
+  );
+}
+
+function ArchivedTaskRow({ task }: { task: Task }) {
+  const { reAddTask, removeTask } = useApp();
+  const { toast } = useToast();
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const done = task.status === "done";
+
+  const actionClass =
+    "pressable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface-soft transition-colors duration-150 md:opacity-0 md:group-hover:opacity-100";
+
+  return (
+    <>
+      <div className="group flex items-center gap-3.5 rounded-[14px] bg-surface-elevated px-4 py-2.5">
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-surface-soft",
+            done ? "text-muted/70" : "text-secondary"
+          )}
+        >
+          <TaskIcon name={task.icon} size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "truncate text-[15px] leading-[21px]",
+                done ? "text-muted line-through" : "font-medium text-primary"
+              )}
+            >
+              {task.title}
+            </span>
+            {!done && (
+              <span className="shrink-0 rounded-full bg-high/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-high">
+                Missed
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 truncate text-[12px] leading-[18px] text-muted">{task.areaName}</div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            onClick={() => {
+              reAddTask(task.id);
+              toast(`Re-added · ${task.title}`);
+            }}
+            aria-label={`Re-add ${task.title} for today`}
+            title="Re-add for today"
+            className={cn(actionClass, "text-primary hover:bg-accent/15 hover:text-accent")}
+          >
+            <RotateCcw size={15} strokeWidth={2.2} />
+          </button>
+          <button
+            onClick={() => setScheduleOpen(true)}
+            aria-label={`Re-add ${task.title} on another day`}
+            title="Re-add on another day"
+            className={cn(actionClass, "text-primary hover:bg-accent/15 hover:text-accent")}
+          >
+            <CalendarClock size={15} strokeWidth={2.2} />
+          </button>
+          <button
+            onClick={() => {
+              removeTask(task.id);
+              toast(`Deleted · ${task.title}`, "warn");
+            }}
+            aria-label={`Delete ${task.title}`}
+            title="Delete task"
+            className={cn(actionClass, "text-muted hover:bg-high/10 hover:text-high")}
+          >
+            <X size={15} strokeWidth={2.2} />
+          </button>
+        </div>
+      </div>
+      {scheduleOpen && <ScheduleMissedTaskModal task={task} onClose={() => setScheduleOpen(false)} />}
+    </>
   );
 }
 

@@ -9,7 +9,7 @@ import { TaskRow } from "@/components/dashboard/TaskRow";
 import { TaskHistory } from "@/components/dashboard/TaskHistory";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CreateTaskModal } from "@/components/tasks/CreateTaskModal";
-import { formatFullDate } from "@/lib/time";
+import { formatFullDate, dayKey } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const ORDER: Priority[] = ["high", "medium", "low"];
@@ -21,7 +21,7 @@ export function TaskList({ compact }: { compact?: boolean }) {
   const [now] = useState(() => Date.now());
 
   const sorted = [...tasks]
-    .filter((t) => t.bucket === "daily" && !t.archived)
+    .filter((t) => t.bucket === "daily" && !t.archived && t.day === dayKey(new Date()))
     .sort((a, b) => {
       const order = { high: 0, medium: 1, low: 2 } as const;
       if (order[a.priority] !== order[b.priority]) return order[a.priority] - order[b.priority];
