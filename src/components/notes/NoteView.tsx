@@ -27,15 +27,10 @@ export function NoteView({ note }: { note: Note }) {
     if (!contentRef.current.contains(target)) return;
     const li = target.closest("li");
     if (!li || !contentRef.current.contains(li)) return;
-    const struck = li.hasAttribute("data-struck");
-    if (struck) {
+    if (li.hasAttribute("data-struck")) {
       li.removeAttribute("data-struck");
-      li.classList.remove("strike-draw");
     } else {
       li.setAttribute("data-struck", "");
-      li.classList.remove("strike-draw");
-      void li.offsetWidth;
-      li.classList.add("strike-draw");
     }
     const next = contentRef.current.innerHTML;
     if (next !== note.content) {

@@ -237,28 +237,10 @@ body {
   transform: scale(0.96);
 }
 
-/* Tap-to-strike drawing line (read view, touch only) */
-.notes-strike li[data-struck] {
-  position: relative;
-}
-.notes-strike li[data-struck]::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 2px;
-  background: currentColor;
-  transform: scaleX(1);
-  transform-origin: left center;
-}
-.notes-strike li[data-struck].strike-draw::after {
-  animation: strike-draw 0.26s cubic-bezier(0.34, 1.3, 0.64, 1) both;
-}
-
-@keyframes strike-draw {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
+/* Tap-to-strike (read view, touch only) — line-through hits every visual line */
+.notes-strike li[data-struck] > p {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
 }
 
 /* Task completion confetti burst */
