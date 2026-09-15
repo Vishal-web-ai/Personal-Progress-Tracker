@@ -4,7 +4,6 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   Percent,
-  Timer,
   BarChart3,
   TrendingUp,
   ChartNoAxesColumnIncreasing,
@@ -14,13 +13,11 @@ import {
 import { useApp } from "@/store/app-store";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
-import { formatDuration } from "@/lib/utils";
 import {
   buildPeriodSet,
   buildWeekDays,
   percentDelta,
   countDelta,
-  focusDelta,
   type AnalyticsPeriod,
 } from "@/lib/analytics";
 import { CompletionBarChart } from "@/components/charts/CompletionBarChart";
@@ -36,7 +33,6 @@ const PERIODS: { id: AnalyticsPeriod; label: string }[] = [
 
 const TREND_METRICS: { id: TrendMetric; label: string }[] = [
   { id: "completed", label: "Completed" },
-  { id: "focusMinutes", label: "Focus time" },
 ];
 
 const WEEK_PILLS = [
@@ -146,7 +142,6 @@ export function AnalyticsContent() {
 
   const completedDelta = countDelta(set.current, set.previous);
   const rateDelta = percentDelta(set.current, set.previous);
-  const focusDeltaResult = focusDelta(set.current, set.previous);
 
   const periodWord = pastPeriodWord(period);
   const titleWord = currentWord(period);
@@ -228,7 +223,7 @@ export function AnalyticsContent() {
       ) : (
         <div key={`period-${period}-${transitionKey}`} className="space-y-6">
           {/* KPI cards */}
-          <section className="motion-stagger grid gap-3 sm:grid-cols-3">
+          <section className="motion-stagger grid gap-3 sm:grid-cols-2">
             <KpiCard
               icon={<CheckCircle2 size={17} />}
               label="Tasks Completed"
@@ -244,14 +239,6 @@ export function AnalyticsContent() {
               value={`${set.current?.pct == null ? "—" : `${set.current.pct}%`}`}
               badge={<DeltaBadge delta={rateDelta} previousWord={periodWord} suffix="pp" />}
               delay={1}
-            />
-            <KpiCard
-              icon={<Timer size={17} />}
-              label="Focus Time"
-              subtitle={`${titleWord} statistics`}
-              value={formatDuration(set.current?.focusMinutes ?? 0)}
-              badge={<DeltaBadge delta={focusDeltaResult} previousWord={periodWord} suffix="focus" equalLabel="No focus time" />}
-              delay={2}
             />
           </section>
 

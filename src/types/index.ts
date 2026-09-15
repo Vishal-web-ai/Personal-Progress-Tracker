@@ -21,6 +21,7 @@ export interface Task {
   archived?: boolean;
   completedAt?: number;
   createdAt: number;
+  hasTimer?: boolean;
 }
 
 export type TimerMode = "stopwatch" | "focus_target";

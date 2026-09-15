@@ -17,13 +17,6 @@ const MIN_BAR = 30;
 const SLOT = 58;
 const PAD = { top: 18, bottom: 26, left: 8, right: 8 };
 
-function formatMinutes(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = Math.round(min % 60);
-  if (h === 0) return `${m}m`;
-  return `${h}h${m > 0 ? ` ${m}m` : ""}`;
-}
-
 function TooltipCard({ point }: { point: PeriodPoint }) {
   return (
     <div className="rounded-[12px] border border-border bg-surface-elevated px-3 py-2 text-[12px]">
@@ -34,7 +27,6 @@ function TooltipCard({ point }: { point: PeriodPoint }) {
       <p className="text-accent tabular-nums">
         {point.pct == null ? "No tasks planned" : `${point.pct}% completion`}
       </p>
-      <p className="mt-0.5 text-muted">{formatMinutes(point.focusMinutes)} focus</p>
     </div>
   );
 }

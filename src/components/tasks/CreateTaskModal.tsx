@@ -55,6 +55,7 @@ export function CreateTaskModal({
   const [taskMonth, setTaskMonth] = useState<string>(defaultMonthKey ?? monthKey(new Date()));
   const [icon, setIcon] = useState("cloud");
   const [description, setDescription] = useState("");
+  const [hasTimer, setHasTimer] = useState(true);
   const [isAddingArea, setIsAddingArea] = useState(false);
   const [newAreaName, setNewAreaName] = useState("");
   const [areaError, setAreaError] = useState<string | null>(null);
@@ -90,6 +91,7 @@ export function CreateTaskModal({
       setWeekStart(defaultWeekStart ?? dayKeyFor());
       setTaskMonth(defaultMonthKey ?? monthKey(new Date()));
       setDescription("");
+      setHasTimer(true);
       setIsAddingArea(false);
       setNewAreaName("");
       setAreaError(null);
@@ -123,6 +125,7 @@ export function CreateTaskModal({
       icon,
       weekStart: bucket === "weekly" ? weekStart || dayKeyFor() : undefined,
       monthKey: bucket === "monthly" ? taskMonth || monthKey(new Date()) : undefined,
+      hasTimer,
     });
     toast(`Task created · ${title.trim()}`);
     onClose();
@@ -296,6 +299,34 @@ export function CreateTaskModal({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Add context…"
           />
+        </Field>
+
+        <Field label="Timer">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={hasTimer}
+            aria-label="Enable timer for this task"
+            onClick={() => setHasTimer(!hasTimer)}
+            className="pressable flex w-full items-center justify-between rounded-[12px] border border-border bg-surface-elevated px-3.5 py-2.5"
+          >
+            <span className="text-[14px] text-primary">{hasTimer ? "Enabled" : "Disabled"}</span>
+            <span
+              className={cn(
+                "relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-150",
+                hasTimer
+                  ? "border-accent/60 bg-accent/15"
+                  : "border-border bg-surface-soft"
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute left-0.5 top-0.5 h-[22px] w-[22px] rounded-full transition-transform duration-150",
+                  hasTimer ? "translate-x-5 bg-accent" : "bg-muted"
+                )}
+              />
+            </span>
+          </button>
         </Field>
       </div>
     </Modal>

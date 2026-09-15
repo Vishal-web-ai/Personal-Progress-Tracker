@@ -90,7 +90,7 @@ export function TaskRow({
           </div>
         </button>
 
-        {!done && !isActiveTask && (
+        {!done && !isActiveTask && task.hasTimer !== false && (
           <button
             onClick={() => beginSession(task.id, task.title)}
             aria-label={`Start focus on ${task.title}`}

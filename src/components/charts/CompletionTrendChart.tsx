@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useContainerWidth } from "@/lib/useContainerWidth";
 import type { PeriodPoint } from "@/lib/analytics";
 
-export type TrendMetric = "pct" | "completed" | "focusMinutes";
+export type TrendMetric = "pct" | "completed";
 
 interface CompletionTrendChartProps {
   points: PeriodPoint[];
@@ -23,32 +23,20 @@ const DOT_ACTIVE_R = 6;
 
 function metricValue(p: PeriodPoint, metric: TrendMetric): number {
   if (metric === "pct") return p.pct ?? 0;
-  if (metric === "completed") return p.completed;
-  return p.focusMinutes;
+  return p.completed;
 }
 
 function formatMetric(point: PeriodPoint, metric: TrendMetric): string {
   if (metric === "pct") return point.pct == null ? "—" : `${point.pct}%`;
-  if (metric === "completed") {
-    const total = point.planned;
-    const done = point.completed;
-    if (total === 0) return "No tasks";
-    return `${done}/${total} tasks`;
-  }
-  return formatMinutes(point.focusMinutes);
+  const total = point.planned;
+  const done = point.completed;
+  if (total === 0) return "No tasks";
+  return `${done}/${total} tasks`;
 }
 
 function formatAxisValue(value: number, metric: TrendMetric): string {
   if (metric === "pct") return `${Math.round(value)}%`;
-  if (metric === "completed") return `${Math.round(value)}`;
-  return formatMinutes(value);
-}
-
-function formatMinutes(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = Math.round(min % 60);
-  if (h === 0) return `${m}m`;
-  return `${h}h${m > 0 ? ` ${m}m` : ""}`;
+  return `${Math.round(value)}`;
 }
 
 /**
