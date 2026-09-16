@@ -67,6 +67,26 @@ export const NOTE_TINT: Record<
   },
 };
 
+/**
+
+ * Text colors for the note editor. `color` is the value stored on the mark's
+ * inline style; `swatch` is the opaque dot shown in the toolbar picker.
+ */
+export const HIGHLIGHT_COLORS = [
+  { key: "yellow", label: "Yellow", swatch: "#ffd60a", color: "#ffd60a" },
+  { key: "green", label: "Green", swatch: "#6fde78", color: "#6fde78" },
+  { key: "pink", label: "Pink", swatch: "#ff7ba9", color: "#ff7ba9" },
+  { key: "blue", label: "Blue", swatch: "#4cc9ff", color: "#4cc9ff" },
+  { key: "purple", label: "Purple", swatch: "#a78bfa", color: "#a78bfa" },
+  { key: "red", label: "Red", swatch: "#ff6b6b", color: "#ff6b6b" },
+] as const;
+
+export type HighlightColorKey = (typeof HIGHLIGHT_COLORS)[number]["key"];
+
+export function highlightColor(key: HighlightColorKey): string {
+  return HIGHLIGHT_COLORS.find((c) => c.key === key)?.color ?? "";
+}
+
 function hashString(s: string): number {
   let hash = 2166136261;
   for (let i = 0; i < s.length; i++) {

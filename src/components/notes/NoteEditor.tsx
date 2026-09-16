@@ -4,6 +4,7 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Highlight from "@tiptap/extension-highlight";
 import { TableKit } from "@tiptap/extension-table";
 import { TextAlign } from "@tiptap/extension-text-align";
 import {
@@ -13,6 +14,8 @@ import {
   Bold,
   Italic,
   List,
+  Highlighter,
+  PenOff,
   Table as TableIcon,
   AlignLeft,
   AlignCenter,
@@ -22,7 +25,7 @@ import {
 } from "lucide-react";
 import { useNotes } from "@/store/notes-store";
 import { cn } from "@/lib/utils";
-import { NOTE_COLORS, NOTE_TINT } from "@/lib/notes";
+import { NOTE_COLORS, NOTE_TINT, HIGHLIGHT_COLORS } from "@/lib/notes";
 import type { Note } from "@/types";
 
 export function NoteEditor({ note }: { note: Note | null }) {
@@ -43,6 +46,7 @@ export function NoteEditor({ note }: { note: Note | null }) {
   const editor = useEditor({
     extensions: [
       StarterKit,
+      Highlight.configure({ multicolor: true }),
       TableKit.configure({ table: { resizable: true } }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
@@ -233,6 +237,7 @@ export function NoteEditor({ note }: { note: Note | null }) {
           >
             <Italic size={16} />
           </button>
+          <HighlightDropdown editor={editor} />
           <HeadingDropdown editor={editor} />
           <ListDropdown editor={editor} listStyle={listStyle} onStyleChange={setListStyle} />
           <div className="mx-1 h-4 w-px bg-border-soft" />
@@ -349,6 +354,80 @@ function HeadingDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
               <span className={opt.className}>{opt.label}</span>
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HighlightDropdown({ editor }: { editor: ReturnType<typeof useEditor> }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  if (!editor) return null;
+
+  const activeKey = HIGHLIGHT_COLORS.find((c) => editor.isActive("highlight", { color: c.color }))?.key;
+
+  const run = (fn: () => void) => {
+    fn();
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "rounded-lg p-2 transition-colors hover:bg-surface-elevated hover:text-primary",
+          (open || editor.isActive("highlight")) && "bg-surface-elevated text-primary"
+        )}
+        aria-label="Highlight"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <Highlighter size={16} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-10 mt-1 w-44 overflow-hidden rounded-xl border border-border bg-surface-elevated py-1 shadow-lg">
+          <div className="px-3 pb-1.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+            Highlight
+          </div>
+          <div className="grid grid-cols-6 gap-1.5 px-3 pb-2">
+            {HIGHLIGHT_COLORS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() =>
+                  run(() => editor.chain().focus().toggleHighlight({ color: c.color }).run())
+                }
+                className={cn(
+                  "h-5 w-5 rounded-full transition-transform hover:scale-110",
+                  activeKey === c.key && "ring-2 ring-white/60 ring-offset-2 ring-offset-surface-elevated"
+                )}
+                style={{ background: c.swatch }}
+                aria-label={`${c.label} highlight`}
+                aria-pressed={activeKey === c.key}
+                title={`${c.label} highlight`}
+              />
+            ))}
+          </div>
+          <div className="my-1 h-px bg-border-soft" />
+          <button
+            onClick={() => run(() => editor.chain().focus().unsetHighlight().run())}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-secondary transition-colors hover:bg-surface-soft hover:text-primary"
+          >
+            <PenOff size={14} />
+            Remove highlight
+          </button>
         </div>
       )}
     </div>

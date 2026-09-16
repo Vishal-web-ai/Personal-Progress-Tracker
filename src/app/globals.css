@@ -32,24 +32,24 @@
 
   --ring-track: #203a31;
 
-  --note-mint: #0b241c;
-  --note-mint-border: #24483c;
+  --note-mint: #0e3a1f;
+  --note-mint-border: #1c6b38;
   --note-mint-swatch: #b8ff4a;
 
-  --note-teal: #0d2b27;
-  --note-teal-border: #1e4a44;
+  --note-teal: #0e3640;
+  --note-teal-border: #1c6175;
   --note-teal-swatch: #4cc9ff;
 
-  --note-tan: #2a2411;
-  --note-tan-border: #4a4322;
+  --note-tan: #3a2c10;
+  --note-tan-border: #64561f;
   --note-tan-swatch: #e8b25a;
 
-  --note-sand: #2a2317;
-  --note-sand-border: #4a412c;
+  --note-sand: #3a2f14;
+  --note-sand-border: #675923;
   --note-sand-swatch: #e8c85a;
 
-  --note-violet: #251d33;
-  --note-violet-border: #433462;
+  --note-violet: #2f2050;
+  --note-violet-border: #55409a;
   --note-violet-swatch: #a78bfa;
 }
 
@@ -241,6 +241,40 @@ body {
 .notes-strike li[data-struck] > p {
   text-decoration: line-through;
   text-decoration-thickness: 2px;
+}
+
+/* Text colors — tiptap's multicolor Highlight writes `background-color` inline on
+   <mark>. We defeat it and recolor the text to the same hex via data-color, so
+   notes show colored text instead of a highlight background. Legacy rgba values
+   (older notes) map to their solid equivalents. */
+mark[data-color] {
+  background-color: transparent !important;
+  border-radius: 0;
+  padding: 0;
+}
+mark[data-color="#ffd60a"],
+mark[data-color="rgba(255, 214, 10, 0.4)"] {
+  color: #ffd60a !important;
+}
+mark[data-color="#6fde78"],
+mark[data-color="rgba(111, 222, 120, 0.36)"] {
+  color: #6fde78 !important;
+}
+mark[data-color="#ff7ba9"],
+mark[data-color="rgba(255, 123, 169, 0.36)"] {
+  color: #ff7ba9 !important;
+}
+mark[data-color="#4cc9ff"],
+mark[data-color="rgba(76, 201, 255, 0.36)"] {
+  color: #4cc9ff !important;
+}
+mark[data-color="#a78bfa"],
+mark[data-color="rgba(167, 139, 250, 0.38)"] {
+  color: #a78bfa !important;
+}
+mark[data-color="#ff6b6b"],
+mark[data-color="rgba(255, 107, 107, 0.36)"] {
+  color: #ff6b6b !important;
 }
 
 /* Task completion confetti burst */
