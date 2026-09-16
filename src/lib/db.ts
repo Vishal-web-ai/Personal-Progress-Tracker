@@ -69,6 +69,15 @@ export async function writeSnapshot(snapshot: PersistedSnapshot): Promise<void> 
   await tx.done;
 }
 
+/** When the stored snapshot was last written (0 if it has never been persisted). */
+export async function readSavedAt(): Promise<number> {
+  const db = await getDB();
+  const tx = db.transaction(STORE, "readonly");
+  const meta = await tx.store.get(KEYS.meta);
+  await tx.done;
+  return (meta as KvRecord<{ savedAt?: number }> | undefined)?.value?.savedAt ?? 0;
+}
+
 export async function readNotes(): Promise<Note[] | null> {
   const db = await getDB();
   const tx = db.transaction(STORE, "readonly");

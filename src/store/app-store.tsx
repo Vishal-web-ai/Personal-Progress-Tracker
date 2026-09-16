@@ -13,7 +13,7 @@ import type { Area, Task, TaskBucket, WorkSession } from "@/types";
 import { AREAS, INITIAL_TASKS, buildSeedSessions } from "@/data/initial";
 import { buildSampleData } from "@/data/sample";
 import { dayKey, dayKeyFor, monthKey, weekRange } from "@/lib/time";
-import { readSnapshot, writeSnapshot } from "@/lib/db";
+import { readSavedAt, readSnapshot, writeSnapshot } from "@/lib/db";
 
 interface AppSettings {
   userName: string;
@@ -38,6 +38,7 @@ interface AppContextValue {
   toggleTask: (id: string) => void;
   removeTask: (id: string) => void;
   setTaskStatus: (id: string, status: Task["status"]) => void;
+  setTaskRepeat: (id: string, repeat: boolean) => void;
   saveSession: (session: Omit<WorkSession, "id" | "status"> & { status?: WorkSession["status"] }) => void;
   updateSettings: (patch: Partial<AppSettings>) => void;
   reAddTask: (id: string, day?: string) => void;
@@ -111,22 +112,46 @@ function migrateTask(raw: Record<string, unknown>): Task {
           : undefined,
     archived: Boolean(raw.archived),
     completedAt: raw.completedAt as number | undefined,
+    repeat: Boolean(raw.repeat),
     createdAt: (raw.createdAt as number) ?? Date.now(),
   };
 }
 
-/** Archive daily tasks whose calendar day is behind today, and roll incomplete
- *  monthly tasks forward to the current month. */
+/** Archive daily tasks whose calendar day is behind today, rollout incomplete
+ *  monthly tasks forward to the current month. Repeating daily tasks keep their
+ *  completed/missed record (so history + streak survive) and also spawn a fresh
+ *  copy for today — the habit always reappears on its own. */
 function rolloverTasks(tasks: Task[], today: string = dayKey(new Date())): Task[] {
   const thisMonth = monthKey(new Date());
-  return tasks.map((t) => {
+  return tasks.flatMap((t) => {
     if (t.bucket === "daily" && t.day && t.day < today && !t.archived) {
-      return { ...t, archived: true };
+      const archived = { ...t, archived: true };
+      if (!t.repeat) return [archived];
+      return [
+        archived,
+        {
+          id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          title: t.title,
+          description: t.description,
+          areaId: t.areaId,
+          areaName: t.areaName,
+          priority: t.priority,
+          bucket: "daily",
+          icon: t.icon,
+          goalId: t.goalId,
+          status: "todo",
+          day: today,
+          archived: false,
+          hasTimer: t.hasTimer,
+          repeat: true,
+          createdAt: Date.now(),
+        },
+      ];
     }
     if (t.bucket === "monthly" && t.monthKey && t.monthKey < thisMonth && !t.archived && t.status !== "done") {
-      return { ...t, monthKey: thisMonth };
+      return [{ ...t, monthKey: thisMonth }];
     }
-    return t;
+    return [t];
   });
 }
 
@@ -201,6 +226,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const stateRef = useRef(state);
   const persistTimer = useRef<number | null>(null);
+  // Last time this tab produced/held its current state. A dormant tab that
+  // loaded before another tab saved newer data keeps an OLD timestamp, so its
+  // visibility/pagehide flush is skipped instead of clobbering fresh work.
+  const mutationAtRef = useRef(0);
 
   useEffect(() => {
     stateRef.current = state;
@@ -208,10 +237,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!state) return;
+    mutationAtRef.current = Date.now();
     if (persistTimer.current !== null) window.clearTimeout(persistTimer.current);
     persistTimer.current = window.setTimeout(() => {
       persistTimer.current = null;
-      void writeSnapshot({ tasks: state.tasks, sessions: state.sessions, settings: state.settings });
+      void (async () => {
+        try {
+          const savedAt = await readSavedAt();
+          if (mutationAtRef.current >= savedAt) {
+            await writeSnapshot({ tasks: state.tasks, sessions: state.sessions, settings: state.settings });
+          }
+        } catch {
+          // DB unavailable — retried on the next state change or pagehide flush.
+        }
+      })();
     }, 300);
     return () => {
       if (persistTimer.current !== null) window.clearTimeout(persistTimer.current);
@@ -219,6 +258,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state]);
 
   useEffect(() => {
+    const persist = (snapshot: AppState) => {
+      void (async () => {
+        try {
+          const savedAt = await readSavedAt();
+          // Don't let an older tab's in-memory copy overwrite a newer snapshot
+          // that another tab already persisted.
+          if (mutationAtRef.current >= savedAt) {
+            await writeSnapshot({ tasks: snapshot.tasks, sessions: snapshot.sessions, settings: snapshot.settings });
+          }
+        } catch {
+          // DB unavailable at tab-hide; the debounced persist covers the rest.
+        }
+      })();
+    };
     const flush = () => {
       if (persistTimer.current !== null) {
         window.clearTimeout(persistTimer.current);
@@ -226,10 +279,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       const s = stateRef.current;
       if (!s) return;
-      void writeSnapshot({ tasks: s.tasks, sessions: s.sessions, settings: s.settings });
+      persist(s);
+    };
+    const refreshFromDb = () => {
+      void (async () => {
+        const savedAt = await readSavedAt();
+        // Another tab saved something newer than anything this tab has — adopt
+        // it so a returned-to tab keeps showing the real (not stale) streak.
+        if (savedAt > mutationAtRef.current) {
+          try {
+            const fresh = await readSnapshot();
+            if (fresh) {
+              setState({
+                tasks: rolloverTasks(fresh.tasks.map((t) => migrateTask(t as unknown as Record<string, unknown>))),
+                sessions: fresh.sessions ?? [],
+                settings: { ...DEFAULT_SETTINGS, ...(fresh.settings ?? {}) },
+              });
+            }
+          } catch {
+            // ignore — keep current in-memory state
+          }
+        }
+      })();
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flush();
+      else refreshFromDb();
     };
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pagehide", flush);
@@ -336,6 +411,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setTaskRepeat: AppContextValue["setTaskRepeat"] = useCallback((id, repeat) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        tasks: s.tasks.map((t) => (t.id === id ? { ...t, repeat } : t)),
+      };
+    });
+  }, []);
+
   const removeTask: AppContextValue["removeTask"] = useCallback((id) => {
     setState((s) => {
       if (!s) return s;
@@ -420,13 +505,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       toggleTask,
       removeTask,
       setTaskStatus,
+      setTaskRepeat,
       saveSession,
       updateSettings,
       reAddTask,
       resetData,
       loadSampleData,
     };
-  }, [state, addTask, addArea, removeArea, toggleTask, removeTask, setTaskStatus, saveSession, updateSettings, reAddTask, resetData, loadSampleData]);
+  }, [state, addTask, addArea, removeArea, toggleTask, removeTask, setTaskStatus, setTaskRepeat, saveSession, updateSettings, reAddTask, resetData, loadSampleData]);
 
   if (!state || !value) {
     return (

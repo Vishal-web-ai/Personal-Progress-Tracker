@@ -1,13 +1,14 @@
 "use client";
 
 import React from "react";
-import { Play, Trash2 } from "lucide-react";
+import { Play, Repeat, Trash2 } from "lucide-react";
 import { useApp } from "@/store/app-store";
 import { useSessionFlow } from "@/components/timer/SessionFlow";
 import { useToast } from "@/store/toast-store";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { TaskIcon } from "@/components/ui/TaskIcon";
+import { cn } from "@/lib/utils";
 
 export function TaskDetailModal({
   open,
@@ -22,7 +23,7 @@ export function TaskDetailModal({
   label: string;
   color: string;
 }) {
-  const { tasks, toggleTask, removeTask } = useApp();
+  const { tasks, toggleTask, setTaskRepeat, removeTask } = useApp();
   const { beginSession } = useSessionFlow();
   const { toast } = useToast();
 
@@ -51,6 +52,37 @@ export function TaskDetailModal({
           <Button variant="primary" className="w-full" onClick={() => beginSession(task.id, task.title)}>
             <Play size={16} className="translate-x-px" /> Start Timer
           </Button>
+        )}
+
+        {task.bucket === "daily" && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(task.repeat)}
+            aria-label="Repeat this task every day"
+            onClick={() => setTaskRepeat(task.id, !task.repeat)}
+            className="pressable flex w-full items-center justify-between rounded-[12px] border border-border bg-surface-elevated px-3.5 py-2.5"
+          >
+            <span className="flex items-center gap-2 text-[14px] text-primary">
+              <Repeat size={15} className={task.repeat ? "text-accent" : "text-muted"} />
+              {task.repeat ? "Repeats every day" : "Repeat every day"}
+            </span>
+            <span
+              className={cn(
+                "relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-150",
+                task.repeat
+                  ? "border-accent/60 bg-accent/15"
+                  : "border-border bg-surface-soft"
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute left-0.5 top-0.5 h-[22px] w-[22px] rounded-full transition-transform duration-150",
+                  task.repeat ? "translate-x-5 bg-accent" : "bg-muted"
+                )}
+              />
+            </span>
+          </button>
         )}
 
         <div className="flex gap-2">

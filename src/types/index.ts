@@ -22,6 +22,8 @@ export interface Task {
   completedAt?: number;
   createdAt: number;
   hasTimer?: boolean;
+  /** Daily tasks only: always reappear on the next day's list on their own. */
+  repeat?: boolean;
 }
 
 export type TimerMode = "stopwatch" | "focus_target";

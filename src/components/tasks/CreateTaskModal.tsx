@@ -13,7 +13,7 @@ import { MonthPicker } from "@/components/ui/MonthPicker";
 import { TaskIcon } from "@/components/ui/TaskIcon";
 import { cn } from "@/lib/utils";
 import { dayKeyFor, monthKey } from "@/lib/time";
-import { Check, Plus } from "lucide-react";
+import { Check, Plus, Repeat } from "lucide-react";
 
 const PRIORITIES: { value: Priority; label: string; dot: string }[] = [
   { value: "high", label: "High", dot: "var(--priority-high)" },
@@ -56,6 +56,7 @@ export function CreateTaskModal({
   const [icon, setIcon] = useState("cloud");
   const [description, setDescription] = useState("");
   const [hasTimer, setHasTimer] = useState(true);
+  const [repeat, setRepeat] = useState(false);
   const [isAddingArea, setIsAddingArea] = useState(false);
   const [newAreaName, setNewAreaName] = useState("");
   const [areaError, setAreaError] = useState<string | null>(null);
@@ -92,6 +93,7 @@ export function CreateTaskModal({
       setTaskMonth(defaultMonthKey ?? monthKey(new Date()));
       setDescription("");
       setHasTimer(true);
+      setRepeat(false);
       setIsAddingArea(false);
       setNewAreaName("");
       setAreaError(null);
@@ -126,6 +128,7 @@ export function CreateTaskModal({
       weekStart: bucket === "weekly" ? weekStart || dayKeyFor() : undefined,
       monthKey: bucket === "monthly" ? taskMonth || monthKey(new Date()) : undefined,
       hasTimer,
+      repeat: bucket === "daily" && repeat ? true : undefined,
     });
     toast(`Task created · ${title.trim()}`);
     onClose();
@@ -328,6 +331,42 @@ export function CreateTaskModal({
             </span>
           </button>
         </Field>
+
+        {bucket === "daily" && (
+          <Field label="Repeat">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={repeat}
+              aria-label="Repeat this task every day"
+              onClick={() => setRepeat(!repeat)}
+              className="pressable flex w-full items-center justify-between rounded-[12px] border border-border bg-surface-elevated px-3.5 py-2.5"
+            >
+              <span className="flex items-center gap-2 text-[14px] text-primary">
+                {repeat ? "Repeats every day" : "Only today"}
+                {repeat && <Repeat size={14} className="text-accent" />}
+              </span>
+              <span
+                className={cn(
+                  "relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-150",
+                  repeat
+                    ? "border-accent/60 bg-accent/15"
+                    : "border-border bg-surface-soft"
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute left-0.5 top-0.5 h-[22px] w-[22px] rounded-full transition-transform duration-150",
+                    repeat ? "translate-x-5 bg-accent" : "bg-muted"
+                  )}
+                />
+              </span>
+            </button>
+            <p className="mt-1 text-[12px] text-muted">
+              This daily task always appears again in the next day&apos;s list on its own.
+            </p>
+          </Field>
+        )}
       </div>
     </Modal>
   );

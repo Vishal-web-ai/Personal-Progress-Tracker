@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Play } from "lucide-react";
+import { Play, Repeat } from "lucide-react";
 import type { Task } from "@/types";
 import { useApp } from "@/store/app-store";
 import { useSessionFlow } from "@/components/timer/SessionFlow";
@@ -86,6 +86,14 @@ export function TaskRow({
             </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-[13px] leading-[18px] text-secondary">
               <span className="truncate">{task.areaName}</span>
+              {task.repeat && !done && (
+                <span
+                  className="flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-1.5 py-px text-[10px] text-accent"
+                  title="Repeats daily"
+                >
+                  <Repeat size={10} strokeWidth={2.4} />
+                </span>
+              )}
             </div>
           </div>
         </button>
