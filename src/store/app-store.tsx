@@ -449,19 +449,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!s) return s;
       const src = s.tasks.find((t) => t.id === id);
       if (!src || src.bucket !== "daily") return s;
+      // Archive the source record (keeping its completedAt + day so the streak
+      // and history survive) and hand today a fresh copy, like rollover does
+      // for repeating tasks. Previously this mutated in place and destroyed
+      // the earlier day's completion evidence.
       return {
         ...s,
-        tasks: s.tasks.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                status: "todo",
-                completedAt: undefined,
-                day,
-                archived: false,
-              }
-            : t
-        ),
+        tasks: [
+          {
+            id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            title: src.title,
+            description: src.description,
+            areaId: src.areaId,
+            areaName: src.areaName,
+            priority: src.priority,
+            bucket: "daily",
+            icon: src.icon,
+            goalId: src.goalId,
+            status: "todo",
+            day,
+            archived: false,
+            hasTimer: src.hasTimer,
+            repeat: src.repeat,
+            createdAt: Date.now(),
+          },
+          ...s.tasks.map((t) => (t.id === id ? { ...t, archived: true } : t)),
+        ],
       };
     });
   }, []);
