@@ -1,7 +1,5 @@
-"use client";
-
 import React from "react";
-import { Play, Repeat } from "lucide-react";
+import { Play, Repeat, Pencil } from "lucide-react";
 import type { Task } from "@/types";
 import { useApp } from "@/store/app-store";
 import { useSessionFlow } from "@/components/timer/SessionFlow";
@@ -10,7 +8,7 @@ import { TaskIcon } from "@/components/ui/TaskIcon";
 import { ParticleBurst } from "@/components/ui/ParticleBurst";
 import { cn } from "@/lib/utils";
 import { PRIORITY_META } from "@/data/initial";
-import { TaskDetailModal } from "./TaskDetailModal";
+import { CreateTaskModal } from "@/components/tasks/CreateTaskModal";
 import { useTimer } from "@/store/timer-store";
 
 export function TaskRow({
@@ -23,7 +21,7 @@ export function TaskRow({
   const { toggleTask } = useApp();
   const { beginSession } = useSessionFlow();
   const { active } = useTimer();
-  const [detailOpen, setDetailOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
 
   const done = task.status === "done";
   const inProgress = task.status === "in_progress";
@@ -53,9 +51,9 @@ export function TaskRow({
       >
         {burstCount > 0 && <ParticleBurst key={burstCount} seed={burstCount} />}
         <button
-          onClick={() => setDetailOpen(true)}
+          onClick={() => setEditOpen(true)}
           className="flex min-w-0 flex-1 items-center gap-3.5 text-left"
-          aria-label={`Open ${task.title}`}
+          aria-label={`Edit ${task.title}`}
         >
           <div
             className={cn(
@@ -117,12 +115,10 @@ export function TaskRow({
         />
       </div>
 
-      <TaskDetailModal
-        open={detailOpen}
-        onClose={() => setDetailOpen(false)}
-        taskId={task.id}
-        label={priority.label}
-        color={priority.dot}
+      <CreateTaskModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        editTask={task}
       />
     </>
   );

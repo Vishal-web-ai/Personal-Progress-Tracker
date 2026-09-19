@@ -42,6 +42,7 @@ interface AppContextValue {
   saveSession: (session: Omit<WorkSession, "id" | "status"> & { status?: WorkSession["status"] }) => void;
   updateSettings: (patch: Partial<AppSettings>) => void;
   reAddTask: (id: string, day?: string) => void;
+  updateTask: (id: string, patch: Partial<Omit<Task, "id" | "createdAt">>) => void;
   resetData: () => void;
   loadSampleData: () => void;
 }
@@ -479,6 +480,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updateTask: AppContextValue["updateTask"] = useCallback((id, patch) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+      };
+    });
+  }, []);
+
   const updateSettings: AppContextValue["updateSettings"] = useCallback((patch) => {
     setState((s) => {
       if (!s) return s;
@@ -522,10 +533,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveSession,
       updateSettings,
       reAddTask,
+      updateTask,
       resetData,
       loadSampleData,
     };
-  }, [state, addTask, addArea, removeArea, toggleTask, removeTask, setTaskStatus, setTaskRepeat, saveSession, updateSettings, reAddTask, resetData, loadSampleData]);
+  }, [state, addTask, addArea, removeArea, toggleTask, removeTask, setTaskStatus, setTaskRepeat, saveSession, updateSettings, reAddTask, updateTask, resetData, loadSampleData]);
 
   if (!state || !value) {
     return (

@@ -12,7 +12,7 @@ import type { Note } from "@/types";
 export function NoteView({ note }: { note: Note }) {
   const router = useRouter();
   const contentRef = useRef<HTMLDivElement>(null);
-  const { updateNote } = useNotes();
+  useNotes();
   const tint = NOTE_TINT[noteColor(note)];
   const [isTouch] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
@@ -32,10 +32,7 @@ export function NoteView({ note }: { note: Note }) {
     } else {
       li.setAttribute("data-struck", "");
     }
-    const next = contentRef.current.innerHTML;
-    if (next !== note.content) {
-      updateNote(note.id, { content: next });
-    }
+
   };
 
   return (

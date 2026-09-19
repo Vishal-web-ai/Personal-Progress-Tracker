@@ -44,22 +44,34 @@ export function currentMonthProgress(tasks: Task[], now: Date = new Date()): Buc
 }
 
 export function currentStreakDays(tasks: Task[], reference: number = Date.now()): number {
-  // A "day" counts if the user completed a task that day.
-  const activeDays = new Set<number>();
+  const byDay = new Map<string, { total: number; done: number }>();
   tasks.forEach((t) => {
-    if (t.completedAt) activeDays.add(startOfDay(new Date(t.completedAt)));
+    if (t.bucket !== "daily" || t.archived || !t.day) return;
+    const rec = byDay.get(t.day) ?? { total: 0, done: 0 };
+    rec.total += 1;
+    if (t.status === "done") rec.done += 1;
+    byDay.set(t.day, rec);
   });
 
   let streak = 0;
-  const cursor = new Date(reference);
-  cursor.setHours(0, 0, 0, 0);
-  // if today has no activity yet, start counting from yesterday
-  if (!activeDays.has(startOfDay(new Date(reference)))) {
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  while (activeDays.has(cursor.getTime())) {
+  let cursor = dayKey(new Date(reference));
+
+  // If today is fully complete, count it
+  const todayRec = byDay.get(cursor);
+  if (todayRec && todayRec.done === todayRec.total && todayRec.total > 0) {
     streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  // Walk backward counting fully-complete days
+  for (let i = 1; i < 365; i++) {
+    cursor = addDaysKey(cursor, -1);
+    const rec = byDay.get(cursor);
+    if (!rec) continue; // rest day - neutral
+    if (rec.done === rec.total && rec.total > 0) {
+      streak += 1;
+    } else {
+      break; // missed day ends the run
+    }
   }
   return streak;
 }

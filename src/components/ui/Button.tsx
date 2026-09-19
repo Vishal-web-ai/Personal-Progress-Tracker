@@ -1,7 +1,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "primary" | "secondary" | "ghost" | "outline" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "outline" | "danger" | "destructive";
 type Size = "sm" | "md" | "lg" | "icon";
 
 const VARIANTS: Record<Variant, string> = {
@@ -15,6 +15,8 @@ const VARIANTS: Record<Variant, string> = {
     "bg-transparent text-primary border border-border hover:bg-surface-elevated",
   danger:
     "bg-transparent text-high border border-high/40 hover:bg-high/10",
+  destructive:
+    "bg-high text-[#061B14] hover:bg-high/90",
 };
 
 const SIZES: Record<Size, string> = {

@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { AREAS } from "@/data/initial";
-import type { Area, Priority, TaskBucket } from "@/types";
+import type { Area, Priority, Task, TaskBucket } from "@/types";
 import { useApp } from "@/store/app-store";
 import { useToast } from "@/store/toast-store";
 import { Modal } from "@/components/ui/Modal";
@@ -36,6 +36,7 @@ export function CreateTaskModal({
   defaultBucket = "daily",
   defaultWeekStart,
   defaultMonthKey,
+  editTask,
 }: {
   open: boolean;
   onClose: () => void;
@@ -43,8 +44,9 @@ export function CreateTaskModal({
   defaultBucket?: TaskBucket;
   defaultWeekStart?: string;
   defaultMonthKey?: string;
+  editTask?: Task;
 }) {
-  const { addTask, addArea, removeArea, settings } = useApp();
+  const { addTask, updateTask, removeTask, addArea, removeArea, settings } = useApp();
   const { toast } = useToast();
 
   const [title, setTitle] = useState("");
@@ -55,7 +57,7 @@ export function CreateTaskModal({
   const [taskMonth, setTaskMonth] = useState<string>(defaultMonthKey ?? monthKey(new Date()));
   const [icon, setIcon] = useState("cloud");
   const [description, setDescription] = useState("");
-  const [hasTimer, setHasTimer] = useState(true);
+  const [hasTimer, setHasTimer] = useState(false);
   const [repeat, setRepeat] = useState(false);
   const [isAddingArea, setIsAddingArea] = useState(false);
   const [newAreaName, setNewAreaName] = useState("");
@@ -85,15 +87,29 @@ export function CreateTaskModal({
   if (open !== prevOpen) {
     setPrevOpen(open);
     if (open) {
-      setTitle("");
-      setAreaId(defaultAreaId ?? allAreas[0]?.id ?? AREAS[0].id);
-      setPriority("medium");
-      setBucket(defaultBucket);
-      setWeekStart(defaultWeekStart ?? dayKeyFor());
-      setTaskMonth(defaultMonthKey ?? monthKey(new Date()));
-      setDescription("");
-      setHasTimer(true);
-      setRepeat(false);
+      if (editTask) {
+        setTitle(editTask.title);
+        setAreaId(editTask.areaId);
+        setPriority(editTask.priority);
+        setBucket(editTask.bucket);
+        setWeekStart(editTask.weekStart ?? dayKeyFor());
+        setTaskMonth(editTask.monthKey ?? monthKey(new Date()));
+        setIcon(editTask.icon);
+        setDescription(editTask.description ?? "");
+        setHasTimer(editTask.hasTimer !== false);
+        setRepeat(Boolean(editTask.repeat));
+      } else {
+        setTitle("");
+        setAreaId(defaultAreaId ?? allAreas[0]?.id ?? AREAS[0].id);
+        setPriority("medium");
+        setBucket(defaultBucket);
+        setWeekStart(defaultWeekStart ?? dayKeyFor());
+        setTaskMonth(defaultMonthKey ?? monthKey(new Date()));
+        setIcon("cloud");
+        setDescription("");
+        setHasTimer(false);
+        setRepeat(false);
+      }
       setIsAddingArea(false);
       setNewAreaName("");
       setAreaError(null);
@@ -117,7 +133,7 @@ export function CreateTaskModal({
 
   const submit = () => {
     if (!title.trim()) return;
-    addTask({
+    const patch = {
       title: title.trim(),
       description: description.trim() || undefined,
       areaId: area.id,
@@ -129,8 +145,14 @@ export function CreateTaskModal({
       monthKey: bucket === "monthly" ? taskMonth || monthKey(new Date()) : undefined,
       hasTimer,
       repeat: bucket === "daily" && repeat ? true : undefined,
-    });
-    toast(`Task created · ${title.trim()}`);
+    };
+    if (editTask) {
+      updateTask(editTask.id, patch);
+      toast("Task updated");
+    } else {
+      addTask(patch);
+      toast(`Task created · ${title.trim()}`);
+    }
     onClose();
   };
 
@@ -138,14 +160,24 @@ export function CreateTaskModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Create task"
+      title={editTask ? "Edit task" : "Create task"}
       footer={
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="secondary" className="flex-1" onClick={onClose}>
             Cancel
           </Button>
+          {editTask && (
+            <Button variant="destructive" onClick={() => {
+              if (window.confirm('Delete this task?')) {
+                removeTask(editTask.id);
+                onClose();
+              }
+            }}>
+              Delete task
+            </Button>
+          )}
           <Button variant="primary" className="flex-1" disabled={!title.trim()} onClick={submit}>
-            <Check size={16} /> Create task
+            <Check size={16} /> {editTask ? "Save" : "Create task"}
           </Button>
         </div>
       }

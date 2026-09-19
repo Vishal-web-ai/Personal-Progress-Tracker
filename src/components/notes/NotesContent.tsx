@@ -161,12 +161,12 @@ function NoteCard({
         <Link href={`/notes?note=${note.id}`} className="min-w-0 flex-1 text-left">
           <div className="flex items-center gap-2">
             {note.pinned && <Pin size={12} className={cn("shrink-0", tint.accent)} />}
-            <h3 className="truncate text-[15px] font-semibold text-primary">
+            <h3 className={cn("truncate text-[15px] font-semibold", tint.accent)}>
               {note.title || "Untitled"}
             </h3>
           </div>
           {plain && (
-            <p className="mt-1 whitespace-pre-line line-clamp-2 text-[13px] text-secondary">
+            <p className={cn("mt-1 whitespace-pre-line line-clamp-2 text-[13px]", tint.accent, "opacity-60")}>
               {plain.slice(0, 120)}
             </p>
           )}
