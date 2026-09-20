@@ -12,7 +12,7 @@ import type { Note } from "@/types";
 export function NoteView({ note }: { note: Note }) {
   const router = useRouter();
   const contentRef = useRef<HTMLDivElement>(null);
-  useNotes();
+  const { updateNote } = useNotes();
   const tint = NOTE_TINT[noteColor(note)];
   const [isTouch] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
