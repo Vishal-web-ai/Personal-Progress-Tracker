@@ -47,7 +47,8 @@ export function CompletionBarChart({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const data = useMemo(() => [...points].reverse(), [points]);
-  const maxRate = Math.max(1, ...data.map((d) => d.pct ?? 0));
+  // Fixed 0-100% scale for completion rate chart
+  const maxRate = 100;
 
   const contentWidth = data.length * SLOT + PAD.left + PAD.right;
   const chartW = Math.max(contentWidth, width);
@@ -86,7 +87,16 @@ export function CompletionBarChart({
               );
             })}
             <text x={PAD.left} y={PAD.top + 4} fontSize={10} fill="var(--text-muted)">
-              {maxRate}%
+              100%
+            </text>
+            <text x={PAD.left} y={PAD.top + innerH * 0.75} fontSize={10} fill="var(--text-muted)">
+              25%
+            </text>
+            <text x={PAD.left} y={PAD.top + innerH * 0.5} fontSize={10} fill="var(--text-muted)">
+              50%
+            </text>
+            <text x={PAD.left} y={PAD.top + innerH * 0.25} fontSize={10} fill="var(--text-muted)">
+              75%
             </text>
             <text x={PAD.left} y={PAD.top + innerH} fontSize={10} fill="var(--text-muted)">
               0%
