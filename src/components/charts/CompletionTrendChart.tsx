@@ -83,7 +83,7 @@ export function CompletionTrendChart({
   const [hover, setHover] = useState<number | null>(null);
   const [pinned, setPinned] = useState<number | null>(null);
 
-  const data = useMemo(() => [...points].reverse(), [points]);
+  const data = useMemo(() => points, [points]);
   const values = data.map((p) => metricValue(p, metric));
   
   // Fixed 0-100% scale for completion rate, auto-scale for other metrics
@@ -187,7 +187,7 @@ export function CompletionTrendChart({
           )}
 
           {data.map((p, i) => {
-            const labelText = customLabels?.[data.length - 1 - i] ?? p.label;
+            const labelText = customLabels?.[i] ?? p.label;
             const showAll = data.length <= 7;
             const interval = showAll ? 1 : Math.max(2, Math.floor(data.length / 5));
             const show = i % interval === 0 || i === data.length - 1;

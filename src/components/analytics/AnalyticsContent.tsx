@@ -323,7 +323,7 @@ export function AnalyticsContent() {
                 </>
               ) : (
                 <CompletionTrendChart
-                  points={set.points}
+                  points={[...set.points].reverse()}
                   metric="pct"
                   animateKey={`${period}-pct-${transitionKey}`}
                   baseDelay={750}
