@@ -2,7 +2,6 @@
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
-  CheckCircle2,
   Percent,
   BarChart3,
   TrendingUp,
@@ -17,22 +16,14 @@ import {
   buildPeriodSet,
   buildWeekDays,
   percentDelta,
-  countDelta,
   type AnalyticsPeriod,
 } from "@/lib/analytics";
 import { CompletionBarChart } from "@/components/charts/CompletionBarChart";
-import {
-  CompletionTrendChart,
-  type TrendMetric,
-} from "@/components/charts/CompletionTrendChart";
+import { CompletionTrendChart } from "@/components/charts/CompletionTrendChart";
 
 const PERIODS: { id: AnalyticsPeriod; label: string }[] = [
   { id: "weekly", label: "Weekly" },
   { id: "monthly", label: "Monthly" },
-];
-
-const TREND_METRICS: { id: TrendMetric; label: string }[] = [
-  { id: "completed", label: "Completed" },
 ];
 
 const WEEK_PILLS = [
@@ -104,7 +95,6 @@ function DeltaBadge({
 export function AnalyticsContent() {
   const { tasks, sessions } = useApp();
   const [period, setPeriod] = useState<AnalyticsPeriod>("weekly");
-  const [trendMetric, setTrendMetric] = useState<TrendMetric>("completed");
   const [transitionKey, setTransitionKey] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
 
@@ -129,18 +119,12 @@ export function AnalyticsContent() {
     setTransitionKey((k) => k + 1);
   };
 
-  const changeMetric = (m: TrendMetric) => {
-    setTrendMetric(m);
-    setTransitionKey((k) => k + 1);
-  };
-
   const changeWeek = (offset: number) => {
     const clamped = Math.max(MAX_WEEK_OFFSET, Math.min(0, offset));
     setWeekOffset(clamped);
     setTransitionKey((k) => k + 1);
   };
 
-  const completedDelta = countDelta(set.current, set.previous);
   const rateDelta = percentDelta(set.current, set.previous);
 
   const periodWord = pastPeriodWord(period);
@@ -225,18 +209,18 @@ export function AnalyticsContent() {
           {/* KPI cards */}
           <section className="motion-stagger grid gap-3 sm:grid-cols-2">
             <KpiCard
-              icon={<CheckCircle2 size={17} />}
-              label="Tasks Completed"
-              subtitle={`${titleWord} statistics`}
-              value={String(set.current?.completed ?? 0)}
-              badge={<DeltaBadge delta={completedDelta} previousWord={periodWord} suffix="tasks" />}
-              delay={0}
-            />
-            <KpiCard
               icon={<Percent size={17} />}
               label="Completion Rate"
               subtitle={`${titleWord} statistics`}
               value={`${set.current?.pct == null ? "—" : `${set.current.pct}%`}`}
+              badge={<DeltaBadge delta={rateDelta} previousWord={periodWord} suffix="pp" />}
+              delay={0}
+            />
+            <KpiCard
+              icon={<BarChart3 size={17} />}
+              label="Tasks Completed"
+              subtitle={`${titleWord} statistics`}
+              value={String(set.current?.completed ?? 0)}
               badge={<DeltaBadge delta={rateDelta} previousWord={periodWord} suffix="pp" />}
               delay={1}
             />
@@ -252,7 +236,7 @@ export function AnalyticsContent() {
                 </h2>
               </div>
               <span className="text-[12px] text-muted">
-                {mainTitle} · {set.current?.completed ?? 0}/{set.current?.planned ?? 0} done
+                {mainTitle} · Completion rate
               </span>
             </div>
             <CompletionBarChart
@@ -262,48 +246,24 @@ export function AnalyticsContent() {
             />
             <div className="mt-3 flex items-center justify-end gap-4 text-[12px] text-muted">
               <span className="flex items-center gap-1.5">
-                <span className="inline-block h-[10px] w-[10px] rounded-[3px]" style={{ background: "var(--ring-track)" }} />
-                Planned
-              </span>
-              <span className="flex items-center gap-1.5">
                 <span className="inline-block h-[10px] w-[10px] rounded-[3px] bg-accent-dark" />
-                Completed
+                Completion Rate
               </span>
             </div>
           </section>
 
           {/* Trend chart */}
           <section className="rounded-[22px] border border-border bg-surface p-5 sm:p-6">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <TrendingUp size={18} className="text-muted" />
                 <h2 className="text-[17px] font-bold tracking-tight text-primary">
                   Productivity Trend
                 </h2>
               </div>
-              <div
-                className="inline-flex rounded-full border border-border bg-surface-elevated p-0.5"
-                role="tablist"
-                aria-label="Trend metric"
-              >
-                {TREND_METRICS.map((m) => {
-                  const active = trendMetric === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => changeMetric(m.id)}
-                      className={cn(
-                        "seg-control rounded-full px-3 py-1 text-[12px] font-medium",
-                        active ? "bg-surface-soft text-primary" : "text-muted hover:text-secondary"
-                      )}
-                    >
-                      {m.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <span className="text-[12px] text-muted">
+                {mainTitle} · Completion rate
+              </span>
             </div>
 
             {/* Week navigation — only when weekly */}
@@ -355,8 +315,8 @@ export function AnalyticsContent() {
                   <p className="mb-2 text-[12px] text-muted">{weekData.title}</p>
                   <CompletionTrendChart
                     points={weekData.points}
-                    metric={trendMetric}
-                    animateKey={`week-${weekOffset}-${trendMetric}-${transitionKey}`}
+                    metric="pct"
+                    animateKey={`week-${weekOffset}-pct-${transitionKey}`}
                     baseDelay={750}
                     customLabels={weekData.points.map((p) => p.label)}
                   />
@@ -364,8 +324,8 @@ export function AnalyticsContent() {
               ) : (
                 <CompletionTrendChart
                   points={set.points}
-                  metric={trendMetric}
-                  animateKey={`${period}-${trendMetric}-${transitionKey}`}
+                  metric="pct"
+                  animateKey={`${period}-pct-${transitionKey}`}
                   baseDelay={750}
                 />
               )}

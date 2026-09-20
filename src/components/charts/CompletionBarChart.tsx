@@ -13,7 +13,6 @@ interface CompletionBarChartProps {
   className?: string;
 }
 
-const MIN_BAR = 30;
 const SLOT = 58;
 const PAD = { top: 18, bottom: 26, left: 8, right: 8 };
 
@@ -32,10 +31,8 @@ function TooltipCard({ point }: { point: PeriodPoint }) {
 }
 
 /**
- * Animated bar chart showing planned vs completed tasks per period.
- * Each slot has a muted track (planned) and a bright fill (completed) on top —
- * the unfilled gap instantly shows incomplete work. Every period is labeled
- * along the x-axis. Bars grow from height 0 with a light stagger.
+ * Animated bar chart showing completion rate (%) per period.
+ * Single bar per period showing completion rate. Bars grow from height 0 with a light stagger.
  */
 export function CompletionBarChart({
   points,
@@ -50,13 +47,14 @@ export function CompletionBarChart({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const data = useMemo(() => [...points].reverse(), [points]);
-  const max = Math.max(1, ...data.map((d) => d.planned));
+  const maxRate = Math.max(1, ...data.map((d) => d.pct ?? 0));
 
   const contentWidth = data.length * SLOT + PAD.left + PAD.right;
   const chartW = Math.max(contentWidth, width);
   const innerH = height - PAD.top - PAD.bottom;
-  const xFor = (i: number) => PAD.left + SLOT * i + SLOT / 2 - MIN_BAR / 2;
-  const yFor = (v: number) => PAD.top + innerH - (v / max) * innerH;
+  const BAR_W = 24;
+  const xFor = (i: number) => PAD.left + SLOT * i + SLOT / 2 - BAR_W / 2;
+  const yFor = (rate: number) => PAD.top + innerH - (rate / maxRate) * innerH;
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -72,8 +70,8 @@ export function CompletionBarChart({
         <div style={{ height }} />
       ) : (
         <div ref={scrollRef} className="overflow-x-auto [scrollbar-width:thin]">
-          <svg width={chartW} height={height} role="img" aria-label="Task completion bar chart" className="block">
-            {[0, 0.5, 1].map((f) => {
+          <svg width={chartW} height={height} role="img" aria-label="Task completion rate bar chart" className="block">
+            {[0, 0.25, 0.5, 0.75, 1].map((f) => {
               const y = PAD.top + innerH * (1 - f);
               return (
                 <line
@@ -88,24 +86,23 @@ export function CompletionBarChart({
               );
             })}
             <text x={PAD.left} y={PAD.top + 4} fontSize={10} fill="var(--text-muted)">
-              {max}
+              {maxRate}%
             </text>
             <text x={PAD.left} y={PAD.top + innerH} fontSize={10} fill="var(--text-muted)">
-              0
+              0%
             </text>
 
             {(() => {
               let labelCursor = -Infinity;
               return data.map((d, i) => {
-                const plannedH = (d.planned / max) * innerH;
-                const completedH = (d.completed / max) * innerH;
+                const rate = d.pct ?? 0;
                 const x = xFor(i);
                 const isCurrent = i === data.length - 1;
                 const isActive = tooltipIndex === i;
                 const hasData = d.planned > 0;
 
                 const labelW = d.label.length * 5.1;
-                const labelX = x + MIN_BAR / 2;
+                const labelX = x + BAR_W / 2;
                 const showLabel = isCurrent || labelX - labelW / 2 >= labelCursor;
                 if (showLabel) labelCursor = labelX + labelW / 2;
 
@@ -120,40 +117,23 @@ export function CompletionBarChart({
                     <rect x={PAD.left + SLOT * i} y={PAD.top} width={SLOT} height={innerH} fill="transparent" />
                     {hasData && (
                       <rect
-                        key={`${animateKey}-${d.key}-track`}
+                        key={`${animateKey}-${d.key}-rate`}
                         x={x}
-                        y={yFor(d.planned)}
-                        width={MIN_BAR}
-                        height={plannedH}
-                        rx={Math.min(7, MIN_BAR / 2)}
-                        fill="var(--ring-track)"
-                        opacity={isActive ? 1 : 0.7}
-                        className="chart-grow"
-                        style={{
-                          animationDelay: `${baseDelay + i * 35}ms`,
-                          transformOrigin: `${x + MIN_BAR / 2}px ${PAD.top + innerH}px`,
-                        }}
-                      />
-                    )}
-                    {hasData && d.completed > 0 && (
-                      <rect
-                        key={`${animateKey}-${d.key}-fill`}
-                        x={x}
-                        y={yFor(d.completed)}
-                        width={MIN_BAR}
-                        height={completedH}
-                        rx={Math.min(7, MIN_BAR / 2)}
+                        y={yFor(rate)}
+                        width={BAR_W}
+                        height={innerH - (PAD.top + innerH - yFor(rate))}
+                        rx={Math.min(7, BAR_W / 2)}
                         fill={isCurrent ? "var(--accent)" : "var(--accent-dark)"}
                         opacity={isActive ? 1 : 0.92}
                         className="chart-grow"
                         style={{
                           animationDelay: `${baseDelay + i * 35}ms`,
-                          transformOrigin: `${x + MIN_BAR / 2}px ${PAD.top + innerH}px`,
+                          transformOrigin: `${x + BAR_W / 2}px ${PAD.top + innerH}px`,
                         }}
                       />
                     )}
                     <text
-                      x={x + MIN_BAR / 2}
+                      x={x + BAR_W / 2}
                       y={height - 8}
                       textAnchor="middle"
                       fontSize={8.5}
@@ -181,7 +161,7 @@ export function CompletionBarChart({
                 {(() => {
                   const w = 132;
                   const bx = Math.min(chartW - w - 4, Math.max(4, xFor(tooltipIndex) - w / 2));
-                  const by = Math.max(2, yFor(active.planned) - 46);
+                  const by = Math.max(2, yFor(active.pct ?? 0) - 46);
                   return (
                     <g>
                       <rect x={bx} y={by} width={w} height={38} rx={10} fill="var(--surface-elevated)" stroke="var(--border)" />
