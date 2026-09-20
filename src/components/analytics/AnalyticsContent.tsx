@@ -98,14 +98,18 @@ export function AnalyticsContent() {
   const [transitionKey, setTransitionKey] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
 
+  // Filter tasks by bucket for each chart
+  const weeklyTasks = useMemo(() => tasks.filter((t) => t.bucket === "weekly"), [tasks]);
+  const dailyTasks = useMemo(() => tasks.filter((t) => t.bucket === "daily"), [tasks]);
+
   const set = useMemo(
-    () => buildPeriodSet(period, tasks, sessions),
-    [period, tasks, sessions]
+    () => buildPeriodSet(period, weeklyTasks, sessions),
+    [period, weeklyTasks, sessions]
   );
 
   const weekData = useMemo(
-    () => buildWeekDays(weekOffset, tasks, sessions),
-    [weekOffset, tasks, sessions]
+    () => buildWeekDays(weekOffset, dailyTasks, sessions),
+    [weekOffset, dailyTasks, sessions]
   );
 
   const hasAnyData = useMemo(
