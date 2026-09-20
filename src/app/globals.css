@@ -238,7 +238,9 @@ body {
 }
 
 /* Tap-to-strike (read view, touch only) — line-through hits every visual line */
-.notes-strike li[data-struck] > p {
+.notes-strike li[data-struck] > p,
+.notes-strike li > p s,
+.notes-strike li > p strike {
   text-decoration: line-through;
   text-decoration-thickness: 2px;
 }

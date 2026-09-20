@@ -7,6 +7,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
 import { TableKit } from "@tiptap/extension-table";
 import { TextAlign } from "@tiptap/extension-text-align";
+import Strike from "@tiptap/extension-strike";
 import {
   Check,
   Trash2,
@@ -49,6 +50,7 @@ export function NoteEditor({ note }: { note: Note | null }) {
       Highlight.configure({ multicolor: true }),
       TableKit.configure({ table: { resizable: true } }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Strike,
     ],
     content: note?.content ?? "",
     editorProps: {
@@ -236,6 +238,16 @@ export function NoteEditor({ note }: { note: Note | null }) {
             aria-label="Italic"
           >
             <Italic size={16} />
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+            className={cn(
+              "rounded-lg p-2 transition-colors hover:bg-surface-elevated hover:text-primary",
+              editor.isActive("strike") ? "bg-surface-elevated text-accent" : "text-muted"
+            )}
+            aria-label="Strikethrough"
+          >
+            <PenOff size={16} />
           </button>
           <HighlightDropdown editor={editor} />
           <HeadingDropdown editor={editor} />
