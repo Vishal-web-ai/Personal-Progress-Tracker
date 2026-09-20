@@ -27,12 +27,17 @@ export function NoteView({ note }: { note: Note }) {
     if (!contentRef.current.contains(target)) return;
     const li = target.closest("li");
     if (!li || !contentRef.current.contains(li)) return;
+    
+    // Toggle the data-struck attribute
     if (li.hasAttribute("data-struck")) {
       li.removeAttribute("data-struck");
     } else {
       li.setAttribute("data-struck", "");
     }
-
+    
+    // Persist the strikethrough state to the note content
+    const updatedHTML = contentRef.current.innerHTML;
+    updateNote(note.id, { content: updatedHTML });
   };
 
   return (
