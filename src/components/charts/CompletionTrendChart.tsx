@@ -17,7 +17,7 @@ interface CompletionTrendChartProps {
   customLabels?: string[];
 }
 
-const PAD = { top: 24, bottom: 28, left: 36, right: 16 };
+const PAD = { top: 24, bottom: 28, left: 52, right: 16 };
 const DOT_R = 4;
 const DOT_ACTIVE_R = 6;
 
@@ -85,8 +85,11 @@ export function CompletionTrendChart({
 
   const data = useMemo(() => [...points].reverse(), [points]);
   const values = data.map((p) => metricValue(p, metric));
-  const maxVal = Math.max(1, ...values);
-  const minVal = Math.min(0, ...values);
+  
+  // Fixed 0-100% scale for completion rate, auto-scale for other metrics
+  const isPct = metric === "pct";
+  const maxVal = isPct ? 100 : Math.max(1, ...values);
+  const minVal = isPct ? 0 : Math.min(0, ...values);
 
   const innerW = Math.max(0, width - PAD.left - PAD.right);
   const innerH = height - PAD.top - PAD.bottom;
@@ -128,26 +131,44 @@ export function CompletionTrendChart({
         <div style={{ height }} />
       ) : (
         <svg width={width} height={height} role="img" aria-label="Productivity trend line chart">
-          {[0, 0.5, 1].map((f) => {
+          {/* Y-axis gridlines and labels */}
+          {(isPct ? [0, 0.25, 0.5, 0.75, 1] : [0, 0.5, 1]).map((f) => {
             const y = PAD.top + innerH * (1 - f);
+            const isBaseline = f === 0;
             return (
-              <line
-                key={f}
-                x1={PAD.left}
-                x2={width - PAD.right}
-                y1={y}
-                y2={y}
-                stroke="var(--border-soft)"
-                strokeWidth={1}
-              />
+              <g key={f}>
+                <line
+                  x1={PAD.left}
+                  x2={width - PAD.right}
+                  y1={y}
+                  y2={y}
+                  stroke="var(--border-soft)"
+                  strokeWidth={isBaseline ? 1.5 : 1}
+                  strokeDasharray={isBaseline ? "none" : "2 4"}
+                />
+                <text
+                  x={PAD.left - 8}
+                  y={y + (f === 1 ? 4 : f === 0 ? 0 : 0)}
+                  fontSize={10}
+                  fill="var(--text-muted)"
+                  textAnchor="end"
+                  dominantBaseline={f === 1 ? "hanging" : f === 0 ? "alphabetic" : "middle"}
+                >
+                  {isPct
+                    ? f === 1
+                      ? "100%"
+                      : f === 0.75
+                      ? "75%"
+                      : f === 0.5
+                      ? "50%"
+                      : f === 0.25
+                      ? "25%"
+                      : "0%"
+                    : formatAxisValue(f === 1 ? minVal : f === 0 ? maxVal : (maxVal + minVal) / 2, metric)}
+                </text>
+              </g>
             );
           })}
-          <text x={4} y={PAD.top + 4} fontSize={10} fill="var(--text-muted)">
-            {formatAxisValue(maxVal, metric)}
-          </text>
-          <text x={4} y={PAD.top + innerH} fontSize={10} fill="var(--text-muted)">
-            {formatAxisValue(minVal, metric)}
-          </text>
 
           <path d={areaPath} fill="var(--accent)" opacity={0.08} />
           {data.length > 1 && (
@@ -174,9 +195,9 @@ export function CompletionTrendChart({
               <text
                 key={i}
                 x={xFor(i)}
-                y={height - 8}
+                y={height - 4}
                 textAnchor="middle"
-                fontSize={11}
+                fontSize={10}
                 fill="var(--text-muted)"
               >
                 {labelText}
