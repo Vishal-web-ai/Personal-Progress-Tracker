@@ -166,7 +166,7 @@ export function CompletionTrendChart({
           )}
 
           {data.map((p, i) => {
-            const labelText = customLabels?.[i] ?? p.label;
+            const labelText = customLabels?.[data.length - 1 - i] ?? p.label;
             const showAll = data.length <= 7;
             const interval = showAll ? 1 : Math.max(2, Math.floor(data.length / 5));
             const show = i % interval === 0 || i === data.length - 1;
@@ -218,18 +218,22 @@ export function CompletionTrendChart({
             <g pointerEvents="none">
               <line x1={xFor(tooltipIndex)} x2={xFor(tooltipIndex)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--border)" strokeWidth={1} strokeDasharray="3 3" />
               {(() => {
-                const w = 140;
+                const w = 180;
                 const bx = Math.min(width - w - 4, Math.max(4, xFor(tooltipIndex) - w / 2));
-                const by = Math.max(2, yFor(metricValue(active, metric)) - 52);
+                const by = Math.max(2, yFor(metricValue(active, metric)) - 64);
+                const pct = active.pct == null ? "—" : `${active.pct}%`;
+                const tasksText = `Tasks: ${active.completed}/${active.planned}`;
                 return (
                   <g>
-                    <rect x={bx} y={by} width={w} height={40} rx={10} fill="var(--surface-elevated)" stroke="var(--border)" />
-                    <circle cx={bx + 14} cy={by + 14} r={4} fill="var(--accent)" />
-                    <text x={bx + 24} y={by + 18} fontSize={11} fontWeight={600} fill="var(--text-primary)">
+                    <rect x={bx} y={by} width={w} height={56} rx={10} fill="var(--surface-elevated)" stroke="var(--border)" />
+                    <text x={bx + 12} y={by + 16} fontSize={11} fontWeight={600} fill="var(--text-primary)">
                       {active.title}
                     </text>
-                    <text x={bx + w / 2} y={by + 34} textAnchor="middle" fontSize={11} fill="var(--accent)">
-                      {formatMetric(active, metric)}
+                    <text x={bx + 12} y={by + 32} fontSize={11} fill="var(--text-secondary)">
+                      {tasksText}
+                    </text>
+                    <text x={bx + 12} y={by + 48} fontSize={11} fill="var(--accent)" fontWeight={600}>
+                      Completion Rate: {pct}
                     </text>
                   </g>
                 );
