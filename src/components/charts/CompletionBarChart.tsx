@@ -14,7 +14,9 @@ interface CompletionBarChartProps {
 }
 
 const SLOT = 58;
-const PAD = { top: 18, bottom: 26, left: 8, right: 8 };
+const PAD = { top: 16, bottom: 32, left: 52, right: 16 };
+const BAR_W = 28;
+const BAR_RADIUS = 6;
 
 function TooltipCard({ point }: { point: PeriodPoint }) {
   return (
@@ -33,6 +35,7 @@ function TooltipCard({ point }: { point: PeriodPoint }) {
 /**
  * Animated bar chart showing completion rate (%) per period.
  * Single bar per period showing completion rate. Bars grow from height 0 with a light stagger.
+ * Fixed 0-100% scale with proper axis spacing.
  */
 export function CompletionBarChart({
   points,
@@ -53,9 +56,10 @@ export function CompletionBarChart({
   const contentWidth = data.length * SLOT + PAD.left + PAD.right;
   const chartW = Math.max(contentWidth, width);
   const innerH = height - PAD.top - PAD.bottom;
-  const BAR_W = 24;
   const xFor = (i: number) => PAD.left + SLOT * i + SLOT / 2 - BAR_W / 2;
+  // yFor maps 0% to bottom (baseline), 100% to top
   const yFor = (rate: number) => PAD.top + innerH - (rate / maxRate) * innerH;
+  const baselineY = PAD.top + innerH;
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -72,36 +76,36 @@ export function CompletionBarChart({
       ) : (
         <div ref={scrollRef} className="overflow-x-auto [scrollbar-width:thin]">
           <svg width={chartW} height={height} role="img" aria-label="Task completion rate bar chart" className="block">
+            {/* Y-axis gridlines and labels */}
             {[0, 0.25, 0.5, 0.75, 1].map((f) => {
               const y = PAD.top + innerH * (1 - f);
+              const isBaseline = f === 0;
               return (
-                <line
-                  key={f}
-                  x1={PAD.left}
-                  x2={chartW - PAD.right}
-                  y1={y}
-                  y2={y}
-                  stroke="var(--border-soft)"
-                  strokeWidth={1}
-                />
+                <g key={f}>
+                  <line
+                    x1={PAD.left}
+                    x2={chartW - PAD.right}
+                    y1={y}
+                    y2={y}
+                    stroke="var(--border-soft)"
+                    strokeWidth={isBaseline ? 1.5 : 1}
+                    strokeDasharray={isBaseline ? "none" : "2 4"}
+                  />
+                  <text
+                    x={PAD.left - 10}
+                    y={y + (f === 1 ? 4 : f === 0 ? 0 : 0)}
+                    fontSize={10}
+                    fill="var(--text-muted)"
+                    textAnchor="end"
+                    dominantBaseline={f === 1 ? "hanging" : f === 0 ? "alphabetic" : "middle"}
+                  >
+                    {f === 1 ? "100%" : f === 0.75 ? "75%" : f === 0.5 ? "50%" : f === 0.25 ? "25%" : "0%"}
+                  </text>
+                </g>
               );
             })}
-            <text x={PAD.left} y={PAD.top + 4} fontSize={10} fill="var(--text-muted)">
-              100%
-            </text>
-            <text x={PAD.left} y={PAD.top + innerH * 0.75} fontSize={10} fill="var(--text-muted)">
-              25%
-            </text>
-            <text x={PAD.left} y={PAD.top + innerH * 0.5} fontSize={10} fill="var(--text-muted)">
-              50%
-            </text>
-            <text x={PAD.left} y={PAD.top + innerH * 0.25} fontSize={10} fill="var(--text-muted)">
-              75%
-            </text>
-            <text x={PAD.left} y={PAD.top + innerH} fontSize={10} fill="var(--text-muted)">
-              0%
-            </text>
 
+            {/* Bars */}
             {(() => {
               let labelCursor = -Infinity;
               return data.map((d, i) => {
@@ -111,10 +115,12 @@ export function CompletionBarChart({
                 const isActive = tooltipIndex === i;
                 const hasData = d.planned > 0;
 
-                const labelW = d.label.length * 5.1;
+                const labelW = d.label.length * 5.5;
                 const labelX = x + BAR_W / 2;
                 const showLabel = isCurrent || labelX - labelW / 2 >= labelCursor;
                 if (showLabel) labelCursor = labelX + labelW / 2;
+
+                const barHeight = Math.max(0, baselineY - yFor(rate));
 
                 return (
                   <g
@@ -124,29 +130,44 @@ export function CompletionBarChart({
                     onMouseLeave={() => setHover(null)}
                     onClick={() => setPinned((p) => (p === i ? null : i))}
                   >
+                    {/* Hit area for hover */}
                     <rect x={PAD.left + SLOT * i} y={PAD.top} width={SLOT} height={innerH} fill="transparent" />
+                    
+                    {/* Baseline (0% line) */}
+                    <line
+                      x1={PAD.left + SLOT * i}
+                      x2={PAD.left + SLOT * (i + 1)}
+                      y1={baselineY}
+                      y2={baselineY}
+                      stroke="var(--border)"
+                      strokeWidth={1.5}
+                    />
+
                     {hasData && (
                       <rect
                         key={`${animateKey}-${d.key}-rate`}
                         x={x}
                         y={yFor(rate)}
                         width={BAR_W}
-                        height={innerH - (PAD.top + innerH - yFor(rate))}
-                        rx={Math.min(7, BAR_W / 2)}
+                        height={barHeight}
+                        rx={BAR_RADIUS}
+                        ry={BAR_RADIUS}
                         fill={isCurrent ? "var(--accent)" : "var(--accent-dark)"}
                         opacity={isActive ? 1 : 0.92}
                         className="chart-grow"
                         style={{
                           animationDelay: `${baseDelay + i * 35}ms`,
-                          transformOrigin: `${x + BAR_W / 2}px ${PAD.top + innerH}px`,
+                          transformOrigin: `${x + BAR_W / 2}px ${baselineY}px`,
                         }}
                       />
                     )}
+
+                    {/* X-axis label */}
                     <text
                       x={x + BAR_W / 2}
-                      y={height - 8}
+                      y={height - 4}
                       textAnchor="middle"
-                      fontSize={8.5}
+                      fontSize={10}
                       fill="var(--text-muted)"
                       className="select-none"
                     >
@@ -157,24 +178,25 @@ export function CompletionBarChart({
               });
             })()}
 
+            {/* Tooltip */}
             {tooltipIndex !== null && active && (
               <g pointerEvents="none">
                 <line
-                  x1={xFor(tooltipIndex)}
-                  x2={xFor(tooltipIndex)}
+                  x1={xFor(tooltipIndex) + BAR_W / 2}
+                  x2={xFor(tooltipIndex) + BAR_W / 2}
                   y1={PAD.top}
-                  y2={PAD.top + innerH}
+                  y2={baselineY}
                   stroke="var(--border)"
                   strokeWidth={1}
                   strokeDasharray="3 3"
                 />
                 {(() => {
-                  const w = 132;
-                  const bx = Math.min(chartW - w - 4, Math.max(4, xFor(tooltipIndex) - w / 2));
-                  const by = Math.max(2, yFor(active.pct ?? 0) - 46);
+                  const w = 140;
+                  const bx = Math.min(chartW - w - 8, Math.max(8, xFor(tooltipIndex) + BAR_W / 2 - w / 2));
+                  const by = Math.max(8, yFor(active.pct ?? 0) - 56);
                   return (
                     <g>
-                      <rect x={bx} y={by} width={w} height={38} rx={10} fill="var(--surface-elevated)" stroke="var(--border)" />
+                      <rect x={bx} y={by} width={w} height={44} rx={8} fill="var(--surface-elevated)" stroke="var(--border)" />
                       <text x={bx + w / 2} y={by + 14} textAnchor="middle" fontSize={10} fontWeight={600} fill="var(--text-primary)">
                         {active.title}
                       </text>
