@@ -112,7 +112,14 @@ export function AnalyticsContent() {
     const monthStart = startOfMonth(new Date(now));
     const monthEnd = new Date(new Date(monthStart).getFullYear(), new Date(monthStart).getMonth() + 1, 0).getTime();
     const weeksInMonth = Math.ceil((monthEnd - monthStart) / (7 * DAY));
-    return buildWeekDays(0, dailyTasks, sessions, monthStart + (weeksInMonth - 1) * 7 * DAY);
+    const weekResult = buildWeekDays(0, dailyTasks, sessions, monthStart + (weeksInMonth - 1) * 7 * DAY);
+    // Override labels to show "Week 1", "Week 2", etc.
+    const pointsWithWeekLabels = weekResult.points.map((p, i) => ({
+      ...p,
+      label: `Week ${i + 1}`,
+      title: `Week ${i + 1} · ${p.title}`,
+    }));
+    return { ...weekResult, points: pointsWithWeekLabels };
   }, [period, dailyTasks, sessions]);
 
   const set = useMemo(
