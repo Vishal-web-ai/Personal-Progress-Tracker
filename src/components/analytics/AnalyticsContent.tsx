@@ -20,6 +20,8 @@ import {
 } from "@/lib/analytics";
 import { CompletionBarChart } from "@/components/charts/CompletionBarChart";
 import { CompletionTrendChart } from "@/components/charts/CompletionTrendChart";
+import { startOfMonth } from "@/lib/time";
+const DAY = 86400000;
 
 const PERIODS: { id: AnalyticsPeriod; label: string }[] = [
   { id: "weekly", label: "Weekly" },
@@ -98,13 +100,24 @@ export function AnalyticsContent() {
   const [transitionKey, setTransitionKey] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
 
-  // Filter tasks by bucket for each chart
+  // Filter tasks by bucket
   const weeklyTasks = useMemo(() => tasks.filter((t) => t.bucket === "weekly"), [tasks]);
   const dailyTasks = useMemo(() => tasks.filter((t) => t.bucket === "daily"), [tasks]);
+  const monthlyTasks = useMemo(() => tasks.filter((t) => t.bucket === "monthly"), [tasks]);
+
+  // For monthly period, build weekly breakdown of current month for trend chart
+  const monthData = useMemo(() => {
+    if (period !== "monthly") return null;
+    const now = Date.now();
+    const monthStart = startOfMonth(new Date(now));
+    const monthEnd = new Date(new Date(monthStart).getFullYear(), new Date(monthStart).getMonth() + 1, 0).getTime();
+    const weeksInMonth = Math.ceil((monthEnd - monthStart) / (7 * DAY));
+    return buildWeekDays(0, dailyTasks, sessions, monthStart + (weeksInMonth - 1) * 7 * DAY);
+  }, [period, dailyTasks, sessions]);
 
   const set = useMemo(
-    () => buildPeriodSet(period, weeklyTasks, sessions),
-    [period, weeklyTasks, sessions]
+    () => buildPeriodSet(period, period === "monthly" ? monthlyTasks : weeklyTasks, sessions),
+    [period, weeklyTasks, monthlyTasks, sessions]
   );
 
   const weekData = useMemo(
@@ -323,6 +336,17 @@ export function AnalyticsContent() {
                     animateKey={`week-${weekOffset}-pct-${transitionKey}`}
                     baseDelay={750}
                     customLabels={weekData.points.map((p) => p.label)}
+                  />
+                </>
+              ) : period === "monthly" && monthData ? (
+                <>
+                  <p className="mb-2 text-[12px] text-muted">Weekly breakdown of this month</p>
+                  <CompletionTrendChart
+                    points={monthData.points}
+                    metric="pct"
+                    animateKey={`month-weekly-${transitionKey}`}
+                    baseDelay={750}
+                    customLabels={monthData.points.map((p) => p.label)}
                   />
                 </>
               ) : (
