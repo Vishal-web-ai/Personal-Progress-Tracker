@@ -2,11 +2,11 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addMonthsKey, monthKey, monthLabel } from "@/lib/time";
 
-const PANEL_WIDTH = 248;
+const PANEL_WIDTH = 220;
 
 /** Themed month picker. The whole trigger is tappable; the popover navigates
  *  one month at a time (range-style) and tapping the month label confirms. */
@@ -77,13 +77,12 @@ export function MonthPicker({
         aria-expanded={open}
         onClick={() => (open ? close() : openPanel())}
         className={cn(
-          "pressable flex w-full items-center justify-between gap-2 rounded-[12px] border bg-surface-elevated px-3.5 py-2.5 text-left text-[14px] text-primary outline-none transition-colors duration-150",
+          "pressable flex items-center justify-center rounded-[12px] border bg-surface-elevated px-2.5 py-2 text-center text-[13px] text-primary outline-none transition-colors duration-150 min-w-[100px]",
           open ? "border-accent/60 ring-2 ring-accent/20" : "border-border focus:border-accent/60 focus:ring-2 focus:ring-accent/20",
           className
         )}
       >
         <span className="truncate">{monthLabel(value)}</span>
-        <CalendarDays size={16} aria-hidden className={cn("shrink-0", open ? "text-accent" : "text-muted")} />
       </button>
 
       {open &&
@@ -126,7 +125,7 @@ export function MonthPicker({
             </div>
 
             {!isThisMonth && (
-              <div className="mt-2 flex justify-end border-t border-border-soft pt-2">
+              <div className="mt-2 flex justify-center border-t border-border-soft pt-2">
                 <button
                   type="button"
                   onClick={() => setView(thisMonth)}

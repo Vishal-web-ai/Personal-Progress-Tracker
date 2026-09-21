@@ -186,40 +186,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    
+    // 1. Immediately hydrate from localStorage (synchronous, fast)
+    const legacy = readLegacyLocalState();
+    if (legacy) {
+      setState({ ...legacy, tasks: rolloverTasks(legacy.tasks) });
+    } else {
+      // Fallback to seed data immediately so UI renders
+      setState(defaultSeed());
+    }
+
+    // 2. Then load IndexedDB in background (async)
     void (async () => {
-      let loaded: AppState | null = null;
       try {
         const db = await readSnapshot();
-        if (db) {
-          loaded = {
-            tasks: db.tasks.map((t) => migrateTask(t as unknown as Record<string, unknown>)),
+        if (db && !cancelled) {
+          setState({ 
+            ...db, 
+            tasks: rolloverTasks(db.tasks.map((t) => migrateTask(t as unknown as Record<string, unknown>))),
             sessions: db.sessions ?? [],
             settings: { ...DEFAULT_SETTINGS, ...(db.settings ?? {}) },
-          };
+          });
         }
       } catch {
-        // fall through to legacy migration / seed
+        // Ignore - keep current state (from localStorage or seed)
       }
-      if (!loaded && !cancelled) {
+      
+      // 3. If legacy data existed, migrate it to IndexedDB
+      if (legacy && !cancelled) {
         try {
-          const legacy = readLegacyLocalState();
-          if (legacy) {
-            await writeSnapshot({
-              tasks: legacy.tasks,
-              sessions: legacy.sessions,
-              settings: legacy.settings,
-            });
-            window.localStorage.removeItem(STORAGE_KEY);
-            loaded = legacy;
-          }
+          await writeSnapshot({
+            tasks: legacy.tasks,
+            sessions: legacy.sessions,
+            settings: legacy.settings,
+          });
+          window.localStorage.removeItem(STORAGE_KEY);
         } catch {
-          // ignore; seed below
+          // Ignore migration errors
         }
       }
-      if (!cancelled) {
-        setState(loaded ? { ...loaded, tasks: rolloverTasks(loaded.tasks) } : defaultSeed());
-      }
     })();
+
     return () => {
       cancelled = true;
     };

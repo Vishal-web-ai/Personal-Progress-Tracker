@@ -17,10 +17,21 @@ import {
   buildWeekDays,
   percentDelta,
   type AnalyticsPeriod,
+  type PeriodPoint,
 } from "@/lib/analytics";
 import { CompletionBarChart } from "@/components/charts/CompletionBarChart";
 import { CompletionTrendChart } from "@/components/charts/CompletionTrendChart";
-import { startOfMonth } from "@/lib/time";
+import {
+  startOfDay,
+  startOfWeek,
+  startOfMonth,
+  WEEKDAYS_SHORT,
+  MONTHS,
+  monthKey,
+  monthLabel,
+} from "@/lib/time";
+import type { Task, WorkSession } from "@/types";
+import { MonthPicker } from "@/components/ui/MonthPicker";
 const DAY = 86400000;
 
 const PERIODS: { id: AnalyticsPeriod; label: string }[] = [
@@ -28,14 +39,8 @@ const PERIODS: { id: AnalyticsPeriod; label: string }[] = [
   { id: "monthly", label: "Monthly" },
 ];
 
-const WEEK_PILLS = [
-  { offset: 0, label: "This week" },
-  { offset: -1, label: "Last week" },
-  { offset: -2, label: "2 weeks ago" },
-  { offset: -3, label: "3 weeks ago" },
-];
-
 const MAX_WEEK_OFFSET = -11;
+const MAX_MONTH_OFFSET = -24; // ~2 years back
 
 function pastPeriodWord(period: AnalyticsPeriod): string {
   switch (period) {
@@ -90,37 +95,96 @@ function DeltaBadge({
           </span>
         </>
       )}
-    </span>
-  );
+</span>
+   );
 }
+ 
+function buildWeekBlocks(startTimestamp: number, numWeeks: number, tasks: Task[], sessions: WorkSession[]) {
+   const DAY = 86400000;
+   const plannedMap = new Map<number, number>();
+   const completedMap = new Map<number, number>();
+   const focusMap = new Map<number, number>();
+ 
+   for (const t of tasks) {
+        if (t.createdAt) {
+          const dayStart = startOfDay(new Date(t.createdAt));
+          plannedMap.set(dayStart, (plannedMap.get(dayStart) ?? 0) + 1);
+        }
+        if (t.completedAt) {
+          const dayStart = startOfDay(new Date(t.completedAt));
+          completedMap.set(dayStart, (completedMap.get(dayStart) ?? 0) + 1);
+        }
+      }
+
+      for (const s of sessions) {
+        if (s.status !== "saved") continue;
+        const anchor = s.endedAt ?? s.startedAt;
+        if (!anchor) continue;
+        const mins = (s.activeDuration ?? 0) / 60000;
+        if (mins <= 0) continue;
+        const dayStart = startOfDay(new Date(anchor));
+        focusMap.set(dayStart, (focusMap.get(dayStart) ?? 0) + mins);
+      }
+ 
+   const points: PeriodPoint[] = [];
+   for (let weekIndex = 0; weekIndex < numWeeks; weekIndex++) {
+     const weekStart = startTimestamp + weekIndex * 7 * DAY;
+     let planned = 0;
+     let completed = 0;
+     let focus = 0;
+     for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+       const dayStart = weekStart + dayOffset * DAY;
+       planned += plannedMap.get(dayStart) ?? 0;
+       completed += completedMap.get(dayStart) ?? 0;
+       focus += focusMap.get(dayStart) ?? 0;
+     }
+     const pct = planned === 0 ? null : Math.round((completed / planned) * 100);
+     const startDate = new Date(weekStart);
+     const endDate = new Date(weekStart + 6 * DAY); // last day of week
+     const label = `Week ${weekIndex + 1}`;
+     const title = `${startDate.getDate()} ${MONTHS[startDate.getMonth()].slice(0, 3)} – ${endDate.getDate()} ${MONTHS[endDate.getMonth()].slice(0, 3)}, ${startDate.getFullYear()}`;
+     points.push({
+       key: String(weekStart),
+       start: weekStart,
+       label,
+       title,
+       planned,
+       completed,
+       focusMinutes: focus,
+       pct,
+     });
+   }
+ 
+   // Also compute a title for the whole block (optional)
+   const start = new Date(startTimestamp);
+   const end = new Date(startTimestamp + numWeeks * 7 * DAY - 1); // last ms
+   const blockTitle = `${start.getDate()} ${MONTHS[start.getMonth()].slice(0, 3)} – ${end.getDate()} ${MONTHS[end.getMonth()].slice(0, 3)}, ${start.getFullYear()}`;
+   return { points, title: blockTitle };
+ }
 
 export function AnalyticsContent() {
   const { tasks, sessions } = useApp();
   const [period, setPeriod] = useState<AnalyticsPeriod>("weekly");
   const [transitionKey, setTransitionKey] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [selectedMonthStart, setSelectedMonthStart] = useState(startOfMonth(new Date()));
 
-  // Filter tasks by bucket
+    // Filter tasks by bucket
   const weeklyTasks = useMemo(() => tasks.filter((t) => t.bucket === "weekly"), [tasks]);
   const dailyTasks = useMemo(() => tasks.filter((t) => t.bucket === "daily"), [tasks]);
   const monthlyTasks = useMemo(() => tasks.filter((t) => t.bucket === "monthly"), [tasks]);
 
-  // For monthly period, build weekly breakdown of current month for trend chart
-  const monthData = useMemo(() => {
+  // For monthly period, build weekly breakdown of selected month for trend chart
+const monthData = useMemo(() => {
     if (period !== "monthly") return null;
-    const now = Date.now();
-    const monthStart = startOfMonth(new Date(now));
-    const monthEnd = new Date(new Date(monthStart).getFullYear(), new Date(monthStart).getMonth() + 1, 0).getTime();
-    const weeksInMonth = Math.ceil((monthEnd - monthStart) / (7 * DAY));
-    const weekResult = buildWeekDays(0, dailyTasks, sessions, monthStart + (weeksInMonth - 1) * 7 * DAY);
-    // Override labels to show "Week 1", "Week 2", etc.
-    const pointsWithWeekLabels = weekResult.points.map((p, i) => ({
-      ...p,
-      label: `Week ${i + 1}`,
-      title: `Week ${i + 1} · ${p.title}`,
-    }));
-    return { ...weekResult, points: pointsWithWeekLabels };
-  }, [period, dailyTasks, sessions]);
+    const baseMonthStart = startOfMonth(new Date(selectedMonthStart));
+    const offsetMonthStart = baseMonthStart + monthOffset * 28 * DAY; // roughly 4 weeks per month
+    // Align to month start
+    const monthStart = startOfMonth(new Date(offsetMonthStart));
+    const weekBlocks = buildWeekBlocks(monthStart, 5, dailyTasks, sessions);
+    return weekBlocks;
+  }, [period, dailyTasks, sessions, selectedMonthStart, monthOffset]);
 
   const set = useMemo(
     () => buildPeriodSet(period, period === "monthly" ? monthlyTasks : weeklyTasks, sessions),
@@ -149,6 +213,11 @@ export function AnalyticsContent() {
     setTransitionKey((k) => k + 1);
   };
 
+  const changeMonth = (offset: number) => {
+    setMonthOffset(offset);
+    setTransitionKey((k) => k + 1);
+  };
+
   const rateDelta = percentDelta(set.current, set.previous);
 
   const periodWord = pastPeriodWord(period);
@@ -168,21 +237,28 @@ export function AnalyticsContent() {
       const dx = e.changedTouches[0].clientX - touchStartX.current;
       touchStartX.current = null;
       if (Math.abs(dx) < 40) return; // threshold
-      if (dx > 0) {
-        // swipe right → previous week (higher offset, toward 0)
-        changeWeek(weekOffset + 1);
-      } else {
-        // swipe left → next week (lower offset, toward past)
-        changeWeek(weekOffset - 1);
+      if (period === "weekly") {
+        if (dx > 0) {
+          // swipe right → next week (newer, toward 0)
+          changeWeek(weekOffset - 1);
+        } else {
+          // swipe left → previous week (older, toward past)
+          changeWeek(weekOffset + 1);
+        }
+      } else if (period === "monthly") {
+        if (dx > 0) {
+          // swipe right → next month (newer)
+          changeMonth(monthOffset - 1);
+        } else {
+          // swipe left → previous month (older)
+          changeMonth(monthOffset + 1);
+        }
       }
     },
-    [weekOffset]
+    [period, weekOffset, monthOffset]
   );
 
   const isWeekly = period === "weekly";
-  const weekPillItems = isWeekly
-    ? WEEK_PILLS.filter((p) => p.offset >= MAX_WEEK_OFFSET)
-    : [];
 
   return (
     <div className="space-y-6">
@@ -230,9 +306,9 @@ export function AnalyticsContent() {
         />
       ) : (
         <div key={`period-${period}-${transitionKey}`} className="space-y-6">
-          {/* KPI cards */}
-          <section className="motion-stagger grid gap-3 sm:grid-cols-2">
-            <KpiCard
+{/* KPI cards */}
+       <section className="motion-stagger grid gap-3 grid-cols-2">
+         <KpiCard
               icon={<Percent size={17} />}
               label="Completion Rate"
               subtitle={`${titleWord} statistics`}
@@ -251,77 +327,92 @@ export function AnalyticsContent() {
           </section>
 
           {/* Completion bar chart */}
-          <section className="rounded-[22px] border border-border bg-surface p-5 sm:p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <ChartNoAxesColumnIncreasing size={18} className="text-muted" />
-                <h2 className="text-[17px] font-bold tracking-tight text-primary">
-                  Task Completion
-                </h2>
+<section className="rounded-[22px] border border-border bg-surface p-5 sm:p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ChartNoAxesColumnIncreasing size={18} className="text-muted" />
+                  <h2 className="text-[17px] font-bold tracking-tight text-primary">
+                    {period === "monthly" ? "Monthly Progress Report" : period === "weekly" ? "Weekly Progress Report" : "Task Completion"}
+                  </h2>
+                </div>
+                {period === "daily" && (
+                  <span className="text-[12px] text-muted">
+                    {mainTitle} · Completion rate
+                  </span>
+                )}
               </div>
-              <span className="text-[12px] text-muted">
-                {mainTitle} · Completion rate
-              </span>
-            </div>
-            <CompletionBarChart
-              points={set.points}
-              animateKey={`${period}-${transitionKey}`}
-              baseDelay={280}
-            />
-            <div className="mt-3 flex items-center justify-end gap-4 text-[12px] text-muted">
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-[10px] w-[10px] rounded-[3px] bg-accent-dark" />
-                Completion Rate
-              </span>
-            </div>
-          </section>
+              <CompletionBarChart
+                points={set.points}
+                animateKey={`${period}-${transitionKey}`}
+                baseDelay={280}
+              />
+              <div className="mt-3 flex items-center justify-end gap-4 text-[12px] text-muted">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-[10px] w-[10px] rounded-[3px] bg-accent-dark" />
+                  Completion Rate
+                </span>
+              </div>
+            </section>
 
           {/* Trend chart */}
           <section className="rounded-[22px] border border-border bg-surface p-5 sm:p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="mb-4 flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <TrendingUp size={18} className="text-muted" />
                 <h2 className="text-[17px] font-bold tracking-tight text-primary">
-                  Productivity Trend
+                  {period === "monthly"
+                    ? "Weekly Productivity Trend"
+                    : period === "weekly"
+                    ? "Daily Productivity Trend"
+                    : "Productivity Trend"}
                 </h2>
               </div>
-              <span className="text-[12px] text-muted">
-                {mainTitle} · Completion rate
-              </span>
             </div>
 
             {/* Week navigation — only when weekly */}
             {isWeekly && (
-              <div className="mb-4 flex items-center gap-2">
+              <div className="mb-4 flex items-center justify-center gap-2">
                 <button
-                  onClick={() => changeWeek(weekOffset + 1)}
-                  disabled={weekOffset >= 0}
+                  onClick={() => changeWeek(weekOffset - 1)}
+                  disabled={weekOffset <= MAX_WEEK_OFFSET}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface-elevated text-secondary transition-colors disabled:opacity-30"
                   aria-label="Previous week"
                 >
                   <ChevronLeft size={16} />
                 </button>
-                <div className="flex flex-1 gap-1.5 overflow-x-auto scrollbar-none">
-                  {weekPillItems.map((p) => (
-                    <button
-                      key={p.offset}
-                      onClick={() => changeWeek(p.offset)}
-                      className={cn(
-                        "shrink-0 rounded-full px-3 py-1 text-[12px] font-medium transition-colors",
-                        weekOffset === p.offset
-                          ? "bg-accent text-[#061b14]"
-                          : "border border-border bg-surface-elevated text-muted"
-                      )}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
+                <span className="text-[13px] font-medium text-primary whitespace-nowrap">
+                  {weekData.title}
+                </span>
                 <button
-                  onClick={() => changeWeek(weekOffset - 1)}
-                  disabled={weekOffset <= MAX_WEEK_OFFSET}
+                  onClick={() => changeWeek(weekOffset + 1)}
+                  disabled={weekOffset >= 0}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface-elevated text-secondary transition-colors disabled:opacity-30"
                   aria-label="Next week"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* Month navigation — only when monthly */}
+            {period === "monthly" && monthData && (
+              <div className="mb-4 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => changeMonth(monthOffset - 1)}
+                  disabled={monthOffset <= MAX_MONTH_OFFSET}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface-elevated text-secondary transition-colors disabled:opacity-30"
+                  aria-label="Previous month"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-[13px] font-medium text-primary whitespace-nowrap">
+                  {monthData.title}
+                </span>
+                <button
+                  onClick={() => changeMonth(monthOffset + 1)}
+                  disabled={monthOffset >= 0}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface-elevated text-secondary transition-colors disabled:opacity-30"
+                  aria-label="Next month"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -335,28 +426,22 @@ export function AnalyticsContent() {
               className="touch-pan-y"
             >
               {isWeekly ? (
-                <>
-                  <p className="mb-2 text-[12px] text-muted">{weekData.title}</p>
-                  <CompletionTrendChart
+                <CompletionTrendChart
                     points={weekData.points}
                     metric="pct"
                     animateKey={`week-${weekOffset}-pct-${transitionKey}`}
                     baseDelay={750}
                     customLabels={weekData.points.map((p) => p.label)}
                   />
-                </>
               ) : period === "monthly" && monthData ? (
-                <>
-                  <p className="mb-2 text-[12px] text-muted">Weekly breakdown of this month</p>
-                  <CompletionTrendChart
-                    points={monthData.points}
-                    metric="pct"
-                    animateKey={`month-weekly-${transitionKey}`}
-                    baseDelay={750}
-                    customLabels={monthData.points.map((p) => p.label)}
-                  />
-                </>
-              ) : (
+                              <CompletionTrendChart
+                                                 points={monthData.points}
+                                                 metric="pct"
+                                                 animateKey={`month-weekly-${transitionKey}`}
+                                                 baseDelay={750}
+                                                 customLabels={monthData.points.map((p) => p.label)}
+                                               />
+                            ) : (
                 <CompletionTrendChart
                   points={[...set.points].reverse()}
                   metric="pct"
@@ -396,12 +481,12 @@ function KpiCard({
         {icon}
         <span className="text-[12px]">{label}</span>
       </div>
-      <p
-        key={value}
-        className="kpi-in mt-1.5 text-[28px] font-bold tabular-nums tracking-tight text-primary"
-      >
-        {value}
-      </p>
+<p
+         key={value}
+         className="kpi-in mt-1.5 text-[28px] font-bold tabular-nums tracking-tight text-primary text-center"
+       >
+         {value}
+       </p>
       <div className="mt-1">
         <p className="text-[12px] text-muted">{subtitle}</p>
         <div className="mt-1">{badge}</div>

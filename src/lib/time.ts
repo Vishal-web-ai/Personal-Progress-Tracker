@@ -57,10 +57,10 @@ export function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-/** "September 2026" label from a "YYYY-MM" key. */
+/** "Sep 2026" label from a "YYYY-MM" key (3-letter month). */
 export function monthLabel(key: string): string {
   const [y, m] = key.split("-").map(Number);
-  return `${MONTHS[m - 1]} ${y}`;
+  return `${MONTHS[m - 1].slice(0, 3)} ${y}`;
 }
 
 /** Shift a "YYYY-MM" key by `delta` months. */

@@ -115,12 +115,23 @@ function periodLabel(period: AnalyticsPeriod, start: number): { label: string; t
       title: d.toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric" }),
     };
   }
-  if (period === "weekly") {
-    const end = new Date(start + 6 * DAY);
-    const label = `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}–${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-    const title = `${label}, ${d.getFullYear()}`;
-    return start === startOfWeek(new Date()) ? { label: "This wk", title: title } : { label, title };
-  }
+if (period === "weekly") {
+     const end = new Date(start + 6 * DAY);
+     const startMonth = d.getMonth();
+     const endMonth = end.getMonth();
+     const startDay = d.getDate();
+     const endDay = end.getDate();
+     const monthShort = d.toLocaleDateString("en-US", { month: "short" });
+     const endMonthShort = end.toLocaleDateString("en-US", { month: "short" });
+     let label;
+     if (startMonth === endMonth) {
+       label = `${monthShort} ${startDay}–${endDay}`;
+     } else {
+       label = `${monthShort} ${startDay}–${endMonthShort} ${endDay}`;
+     }
+     const title = `${label}, ${d.getFullYear()}`;
+     return start === startOfWeek(new Date()) ? { label: "This wk", title: title } : { label, title };
+   }
   const label = d.toLocaleDateString("en-US", { month: "short" });
   const title = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const now = new Date();
