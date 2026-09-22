@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,15 +10,21 @@ import {
   BarChart3,
   Settings,
   Sparkles,
+  User,
+  LogOut,
+  ChevronDown,
+  Flag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Avatar } from "@/components/ui/Avatar";
+import { useApp } from "@/store/app-store";
 
 export const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/notes", label: "Notes", icon: StickyNote },
   { href: "/tasks", label: "Tasks", icon: ListTodo },
+  { href: "/goals", label: "Goals", icon: Flag },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 function useActive(): string {
@@ -29,6 +35,8 @@ function useActive(): string {
 
 export function Sidebar() {
   const active = useActive();
+  const { settings } = useApp();
+
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-border-soft bg-background-deep lg:flex">
       <div className="flex items-center gap-2.5 px-6 pt-7 pb-8">
@@ -58,6 +66,20 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Profile link at bottom */}
+        <Link
+          href="/profile"
+          className={cn(
+            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] transition-colors duration-150",
+            active === "/profile"
+              ? "bg-surface-elevated font-semibold text-accent"
+              : "text-secondary hover:bg-surface-elevated/70 hover:text-primary"
+          )}
+        >
+          <User size={19} strokeWidth={active === "/profile" ? 2.2 : 1.8} />
+          Profile
+        </Link>
       </nav>
 
       <div className="px-6 py-6">
@@ -99,6 +121,18 @@ export function BottomNav() {
           </Link>
         );
       })}
+      <Link
+        href="/profile"
+        className={cn(
+          "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1.5 transition-colors duration-150",
+          active === "/profile" ? "bg-[#102C23] text-accent" : "text-[#91A49C] hover:text-secondary"
+        )}
+      >
+        <User size={21} strokeWidth={active === "/profile" ? 2.3 : 1.9} />
+        <span className={cn("text-[10px] leading-none", active === "/profile" ? "font-semibold" : "font-normal")}>
+          Profile
+        </span>
+      </Link>
     </nav>
   );
 }

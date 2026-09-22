@@ -9,7 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import type { Area, Task, TaskBucket, WorkSession } from "@/types";
+import type { Area, Goal, GoalProgressPoint, Note, Phase, PhaseRetrospective, PhaseTask, Task, TaskBucket, WorkSession } from "@/types";
 import { AREAS, INITIAL_TASKS, buildSeedSessions } from "@/data/initial";
 import { buildSampleData } from "@/data/sample";
 import { dayKey, dayKeyFor, monthKey, weekRange } from "@/lib/time";
@@ -25,12 +25,16 @@ interface AppSettings {
 interface AppState {
   tasks: Task[];
   sessions: WorkSession[];
+  goals: Goal[];
+  phaseRetrospectives: PhaseRetrospective[];
   settings: AppSettings;
 }
 
 interface AppContextValue {
   tasks: Task[];
   sessions: WorkSession[];
+  goals: Goal[];
+  phaseRetrospectives: PhaseRetrospective[];
   settings: AppSettings;
   addTask: (task: Omit<Task, "id" | "createdAt" | "status">) => void;
   addArea: (name: string) => Area | null;
@@ -45,6 +49,24 @@ interface AppContextValue {
   updateTask: (id: string, patch: Partial<Omit<Task, "id" | "createdAt">>) => void;
   resetData: () => void;
   loadSampleData: () => void;
+  // Goals & Phases
+  addGoal: (goal: Omit<Goal, "id" | "createdAt" | "progress" | "phases">) => string;
+  updateGoal: (id: string, patch: Partial<Omit<Goal, "id" | "createdAt" | "progress">>) => void;
+  removeGoal: (id: string) => void;
+  addPhase: (goalId: string, phase: Omit<Phase, "id" | "goalId" | "tasks" | "estimatedMinutes" | "actualMinutes">) => string;
+  updatePhase: (goalId: string, phaseId: string, patch: Partial<Omit<Phase, "id" | "goalId" | "tasks">>) => void;
+  removePhase: (goalId: string, phaseId: string) => void;
+  reorderPhases: (goalId: string, phaseIds: string[]) => void;
+  addPhaseTask: (phaseId: string, goalId: string, task: Omit<PhaseTask, "id" | "phaseId" | "goalId" | "createdAt" | "status" | "actualMinutes" | "completedAt">) => void;
+  updatePhaseTask: (phaseId: string, taskId: string, patch: Partial<Omit<PhaseTask, "id" | "phaseId" | "goalId" | "createdAt">>) => void;
+  removePhaseTask: (phaseId: string, taskId: string) => void;
+  reorderPhaseTasks: (phaseId: string, taskIds: string[]) => void;
+  togglePhaseTask: (phaseId: string, taskId: string) => void;
+  startPhase: (goalId: string, phaseId: string) => void;
+  completePhase: (goalId: string, phaseId: string) => void;
+  addPhaseRetrospective: (retrospective: Omit<PhaseRetrospective, "id" | "createdAt">) => void;
+  getPhaseRetrospective: (phaseId: string) => PhaseRetrospective | undefined;
+  computeGoalProgress: (goal: Goal) => number;
 }
 
 const STORAGE_KEY = "pulse-state-v1";
@@ -163,12 +185,20 @@ function decodeState(raw: string): AppState {
   return {
     tasks: (parsed.tasks ?? []).map((t) => migrateTask(t as unknown as Record<string, unknown>)),
     sessions: parsed.sessions ?? [],
+    goals: parsed.goals ?? [],
+    phaseRetrospectives: parsed.phaseRetrospectives ?? [],
     settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) },
   };
 }
 
 function defaultSeed(): AppState {
-  return { tasks: INITIAL_TASKS, sessions: buildSeedSessions(), settings: DEFAULT_SETTINGS };
+  return { 
+    tasks: INITIAL_TASKS, 
+    sessions: buildSeedSessions(), 
+    goals: [], 
+    phaseRetrospectives: [],
+    settings: DEFAULT_SETTINGS 
+  };
 }
 
 function readLegacyLocalState(): AppState | null {
@@ -218,6 +248,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await writeSnapshot({
             tasks: legacy.tasks,
             sessions: legacy.sessions,
+            goals: [],
+            phaseRetrospectives: [],
             settings: legacy.settings,
           });
           window.localStorage.removeItem(STORAGE_KEY);
@@ -253,7 +285,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const savedAt = await readSavedAt();
           if (mutationAtRef.current >= savedAt) {
-            await writeSnapshot({ tasks: state.tasks, sessions: state.sessions, settings: state.settings });
+            await writeSnapshot({ 
+              tasks: state.tasks, 
+              sessions: state.sessions, 
+              goals: state.goals,
+              phaseRetrospectives: state.phaseRetrospectives,
+              settings: state.settings 
+            });
           }
         } catch {
           // DB unavailable — retried on the next state change or pagehide flush.
@@ -273,7 +311,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // Don't let an older tab's in-memory copy overwrite a newer snapshot
           // that another tab already persisted.
           if (mutationAtRef.current >= savedAt) {
-            await writeSnapshot({ tasks: snapshot.tasks, sessions: snapshot.sessions, settings: snapshot.settings });
+            await writeSnapshot({ 
+              tasks: snapshot.tasks, 
+              sessions: snapshot.sessions, 
+              goals: snapshot.goals,
+              phaseRetrospectives: snapshot.phaseRetrospectives,
+              settings: snapshot.settings 
+            });
           }
         } catch {
           // DB unavailable at tab-hide; the debounced persist covers the rest.
@@ -301,6 +345,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               setState({
                 tasks: rolloverTasks(fresh.tasks.map((t) => migrateTask(t as unknown as Record<string, unknown>))),
                 sessions: fresh.sessions ?? [],
+                goals: fresh.goals ?? [],
+                phaseRetrospectives: fresh.phaseRetrospectives ?? [],
                 settings: { ...DEFAULT_SETTINGS, ...(fresh.settings ?? {}) },
               });
             }
@@ -497,6 +543,355 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Goals & Phases
+  const computeGoalProgress = useCallback((goal: Goal): number => {
+    if (goal.phases.length === 0) return 0;
+    const totalTasks = goal.phases.reduce((sum, p) => sum + p.tasks.length, 0);
+    if (totalTasks === 0) return 0;
+    const completedTasks = goal.phases.reduce(
+      (sum, p) => sum + p.tasks.filter((t) => t.status === "done").length,
+      0
+    );
+    return Math.round((completedTasks / totalTasks) * 100);
+  }, []);
+
+  const addGoal: AppContextValue["addGoal"] = useCallback((goalData) => {
+    const id = `g-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const goal: Goal = {
+      ...goalData,
+      id,
+      createdAt: Date.now(),
+      phases: [],
+      progress: 0,
+      status: "active",
+    };
+    setState((s) => {
+      if (!s) return s;
+      return { ...s, goals: [goal, ...s.goals] };
+    });
+    return id;
+  }, []);
+
+  const updateGoal: AppContextValue["updateGoal"] = useCallback((id, patch) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) =>
+          g.id === id ? { ...g, ...patch, progress: computeGoalProgress({ ...g, ...patch } as Goal) } : g
+        ),
+      };
+    });
+  }, [computeGoalProgress]);
+
+  const removeGoal: AppContextValue["removeGoal"] = useCallback((id) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.filter((g) => g.id !== id),
+        phaseRetrospectives: s.phaseRetrospectives.filter((r) => r.goalId !== id),
+      };
+    });
+  }, []);
+
+  const addPhase: AppContextValue["addPhase"] = useCallback((goalId, phaseData) => {
+    const id = `ph-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const goal = state?.goals.find((g) => g.id === goalId);
+    const order = goal ? goal.phases.length : 0;
+    const phase: Phase = {
+      ...phaseData,
+      id,
+      goalId,
+      order,
+      tasks: [],
+      status: "pending",
+      estimatedMinutes: 0,
+      actualMinutes: 0,
+    };
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) =>
+          g.id === goalId
+            ? { ...g, phases: [...g.phases, phase], progress: computeGoalProgress({ ...g, phases: [...g.phases, phase] } as Goal) }
+            : g
+        ),
+      };
+    });
+    return id;
+  }, [state, computeGoalProgress]);
+
+  const updatePhase: AppContextValue["updatePhase"] = useCallback((goalId, phaseId, patch) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) =>
+          g.id === goalId
+            ? {
+                ...g,
+                phases: g.phases.map((p) =>
+                  p.id === phaseId ? { ...p, ...patch } : p
+                ),
+              }
+            : g
+        ),
+      };
+    });
+  }, []);
+
+  const removePhase: AppContextValue["removePhase"] = useCallback((goalId, phaseId) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) =>
+          g.id === goalId
+            ? {
+                ...g,
+                phases: g.phases.filter((p) => p.id !== phaseId),
+              }
+            : g
+        ),
+        phaseRetrospectives: s.phaseRetrospectives.filter((r) => r.phaseId !== phaseId),
+      };
+    });
+  }, []);
+
+  const reorderPhases: AppContextValue["reorderPhases"] = useCallback((goalId, phaseIds) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) =>
+          g.id === goalId
+            ? {
+                ...g,
+                phases: phaseIds
+                  .map((id, index) => {
+                    const phase = g.phases.find((p) => p.id === id);
+                    return phase ? { ...phase, order: index } : null;
+                  })
+                  .filter((p): p is Phase => p !== null),
+              }
+            : g
+        ),
+      };
+    });
+  }, []);
+
+  const addPhaseTask: AppContextValue["addPhaseTask"] = useCallback((phaseId, goalId, taskData) => {
+    const goal = state?.goals.find((g) => g.id === goalId);
+    const phase = goal?.phases.find((p) => p.id === phaseId);
+    const order = phase ? phase.tasks.length : 0;
+    const task: PhaseTask = {
+      ...taskData,
+      id: `pt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      phaseId,
+      goalId,
+      order,
+      status: "todo",
+      actualMinutes: 0,
+      createdAt: Date.now(),
+    };
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) =>
+          g.id === goalId
+            ? {
+                ...g,
+                phases: g.phases.map((p) =>
+                  p.id === phaseId
+                    ? {
+                        ...p,
+                        tasks: [...p.tasks, task],
+                        estimatedMinutes: (p.estimatedMinutes ?? 0) + (task.estimatedMinutes ?? 0),
+                      }
+                    : p
+                ),
+                progress: computeGoalProgress({
+                  ...g,
+                  phases: g.phases.map((p) =>
+                    p.id === phaseId ? { ...p, tasks: [...p.tasks, task] } : p
+                  ),
+                } as Goal),
+              }
+            : g
+        ),
+      };
+    });
+  }, [state, computeGoalProgress]);
+
+  const updatePhaseTask: AppContextValue["updatePhaseTask"] = useCallback((phaseId, taskId, patch) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) => ({
+          ...g,
+          phases: g.phases.map((p) =>
+            p.id === phaseId
+              ? {
+                  ...p,
+                  tasks: p.tasks.map((t) =>
+                    t.id === taskId ? { ...t, ...patch } : t
+                  ),
+                }
+              : p
+          ),
+        })),
+      };
+    });
+  }, []);
+
+  const removePhaseTask: AppContextValue["removePhaseTask"] = useCallback((phaseId, taskId) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) => ({
+          ...g,
+          phases: g.phases.map((p) =>
+            p.id === phaseId
+              ? {
+                  ...p,
+                  tasks: p.tasks.filter((t) => t.id !== taskId),
+                  estimatedMinutes: p.tasks
+                    .filter((t) => t.id !== taskId)
+                    .reduce((sum, t) => sum + (t.estimatedMinutes ?? 0), 0),
+                }
+              : p
+          ),
+        })),
+      };
+    });
+  }, []);
+
+  const reorderPhaseTasks: AppContextValue["reorderPhaseTasks"] = useCallback((phaseId, taskIds) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) => ({
+          ...g,
+          phases: g.phases.map((p) =>
+            p.id === phaseId
+              ? {
+                  ...p,
+                  tasks: taskIds
+                    .map((id, index) => {
+                      const task = p.tasks.find((t) => t.id === id);
+                      return task ? { ...task, order: index } : null;
+                    })
+                    .filter((t): t is PhaseTask => t !== null),
+                }
+              : p
+          ),
+        })),
+      };
+    });
+  }, []);
+
+  const togglePhaseTask: AppContextValue["togglePhaseTask"] = useCallback((phaseId, taskId) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) => ({
+          ...g,
+          phases: g.phases.map((p) =>
+            p.id === phaseId
+              ? {
+                  ...p,
+                  tasks: p.tasks.map((t) =>
+                    t.id === taskId
+                      ? {
+                          ...t,
+                          status: t.status === "done" ? "todo" : "done",
+                          completedAt: t.status === "done" ? undefined : Date.now(),
+                        }
+                      : t
+                  ),
+                }
+              : p
+          ),
+        })),
+      };
+    });
+  }, []);
+
+  const startPhase: AppContextValue["startPhase"] = useCallback((goalId, phaseId) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) =>
+          g.id === goalId
+            ? {
+                ...g,
+                phases: g.phases.map((p) =>
+                  p.id === phaseId
+                    ? { ...p, status: "active", startedAt: p.startedAt ?? Date.now() }
+                    : p
+                ),
+              }
+            : g
+        ),
+      };
+    });
+  }, []);
+
+  const completePhase: AppContextValue["completePhase"] = useCallback((goalId, phaseId) => {
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        goals: s.goals.map((g) =>
+          g.id === goalId
+            ? {
+                ...g,
+                phases: g.phases.map((p) =>
+                  p.id === phaseId
+                    ? { ...p, status: "completed", completedAt: Date.now() }
+                    : p
+                ),
+                progress: computeGoalProgress({
+                  ...g,
+                  phases: g.phases.map((p) =>
+                    p.id === phaseId ? { ...p, status: "completed", completedAt: Date.now() } : p
+                  ),
+                } as Goal),
+              }
+            : g
+        ),
+      };
+    });
+  }, [computeGoalProgress]);
+
+  const addPhaseRetrospective: AppContextValue["addPhaseRetrospective"] = useCallback((retrospective) => {
+    const id = `pr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const record: PhaseRetrospective = {
+      ...retrospective,
+      id,
+      createdAt: Date.now(),
+    };
+    setState((s) => {
+      if (!s) return s;
+      return { ...s, phaseRetrospectives: [...s.phaseRetrospectives, record] };
+    });
+  }, []);
+
+  const getPhaseRetrospective: AppContextValue["getPhaseRetrospective"] = useCallback(
+    (phaseId: string) => {
+      return state?.phaseRetrospectives.find((r) => r.phaseId === phaseId);
+    },
+    [state]
+  );
+
   const updateSettings: AppContextValue["updateSettings"] = useCallback((patch) => {
     setState((s) => {
       if (!s) return s;
@@ -512,6 +907,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...s,
         tasks: [],
         sessions: [],
+        goals: [],
+        phaseRetrospectives: [],
       };
     });
   }, []);
@@ -529,6 +926,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return {
       tasks: state.tasks,
       sessions: state.sessions,
+      goals: state.goals,
+      phaseRetrospectives: state.phaseRetrospectives,
       settings: state.settings,
       addTask,
       addArea,
@@ -543,8 +942,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateTask,
       resetData,
       loadSampleData,
+      // Goals & Phases
+      addGoal,
+      updateGoal,
+      removeGoal,
+      addPhase,
+      updatePhase,
+      removePhase,
+      reorderPhases,
+      addPhaseTask,
+      updatePhaseTask,
+      removePhaseTask,
+      reorderPhaseTasks,
+      togglePhaseTask,
+      startPhase,
+      completePhase,
+      addPhaseRetrospective,
+      getPhaseRetrospective,
+      computeGoalProgress,
     };
-  }, [state, addTask, addArea, removeArea, toggleTask, removeTask, setTaskStatus, setTaskRepeat, saveSession, updateSettings, reAddTask, updateTask, resetData, loadSampleData]);
+  }, [
+    state,
+    addTask,
+    addArea,
+    removeArea,
+    toggleTask,
+    removeTask,
+    setTaskStatus,
+    setTaskRepeat,
+    saveSession,
+    updateSettings,
+    reAddTask,
+    updateTask,
+    resetData,
+    loadSampleData,
+    addGoal,
+    updateGoal,
+    removeGoal,
+    addPhase,
+    updatePhase,
+    removePhase,
+    reorderPhases,
+    addPhaseTask,
+    updatePhaseTask,
+    removePhaseTask,
+    reorderPhaseTasks,
+    togglePhaseTask,
+    startPhase,
+    completePhase,
+    addPhaseRetrospective,
+    getPhaseRetrospective,
+    computeGoalProgress,
+  ]);
 
   if (!state || !value) {
     return (

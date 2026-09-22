@@ -46,7 +46,7 @@ export function currentMonthProgress(tasks: Task[], now: Date = new Date()): Buc
 export function currentStreakDays(tasks: Task[], reference: number = Date.now()): number {
   const byDay = new Map<string, { total: number; done: number }>();
   tasks.forEach((t) => {
-    if (t.bucket !== "daily" || t.archived || !t.day) return;
+    if (t.bucket !== "daily" || !t.day) return;
     const rec = byDay.get(t.day) ?? { total: 0, done: 0 };
     rec.total += 1;
     if (t.status === "done") rec.done += 1;

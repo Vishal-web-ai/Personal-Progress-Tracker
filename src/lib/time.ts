@@ -141,3 +141,13 @@ export function greetingForHour(hour: number): string {
   if (hour < 21) return "Good Evening";
   return "Good Night";
 }
+
+export function formatDate(ts: number): string {
+  return new Date(ts).toISOString().split("T")[0];
+}
+
+export function addDays(d: Date, days: number): Date {
+  const result = new Date(d);
+  result.setDate(result.getDate() + days);
+  return result;
+}

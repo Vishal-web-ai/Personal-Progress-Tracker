@@ -1,0 +1,501 @@
+"use client";
+
+import React, { useState, useMemo, useCallback } from "react";
+import { Plus, Trash2, GripVertical, Flag, Calendar, Target, Brain, Zap, BookOpen, Users, Award } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { Field, Input, Textarea } from "@/components/ui/Form";
+import { useApp } from "@/store/app-store";
+import { useToast } from "@/store/toast-store";
+import { Goal, Phase } from "@/types";
+import { dayKeyFor } from "@/lib/time";
+
+const GOAL_COLORS = [
+  { value: "var(--note-mint-swatch)", name: "Mint", icon: Brain },
+  { value: "var(--note-teal-swatch)", name: "Teal", icon: Zap },
+  { value: "var(--note-tan-swatch)", name: "Tan", icon: BookOpen },
+  { value: "var(--note-sand-swatch)", name: "Sand", icon: Users },
+  { value: "var(--note-violet-swatch)", name: "Violet", icon: Award },
+];
+
+export function PhaseBuilderModal({
+  open,
+  onClose,
+  editGoal,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editGoal?: Goal | null;
+}) {
+  const { addGoal, updateGoal, addPhase, goals } = useApp();
+  const { toast } = useToast();
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [targetDate, setTargetDate] = useState("");
+  const [color, setColor] = useState(GOAL_COLORS[0].value);
+  const [phases, setPhases] = useState<Array<{ id: string; title: string; description: string; dependsOn: string[] }>>([]);
+  const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
+
+  // Initialize from editGoal
+  React.useEffect(() => {
+    if (open) {
+      if (editGoal) {
+        setTitle(editGoal.title);
+        setDescription(editGoal.description || "");
+        setTargetDate(editGoal.targetDate ? new Date(editGoal.targetDate).toISOString().split("T")[0] : "");
+        setColor(editGoal.color || GOAL_COLORS[0].value);
+        setPhases(
+          editGoal.phases.map((p) => ({
+            id: p.id,
+            title: p.title,
+            description: p.description || "",
+            dependsOn: p.dependsOn || [],
+          }))
+        );
+      } else {
+        setTitle("");
+        setDescription("");
+        setTargetDate("");
+        setColor(GOAL_COLORS[0].value);
+        setPhases([]);
+      }
+      setActivePhaseId(null);
+    }
+  }, [open, editGoal]);
+
+  const addCustomPhase = useCallback(() => {
+    const newPhase = {
+      id: `ph-new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      title: "",
+      description: "",
+      dependsOn: phases.length > 0 ? [phases[phases.length - 1].id] : [],
+    };
+    setPhases((prev) => [...prev, newPhase]);
+    setActivePhaseId(newPhase.id);
+  }, [phases.length]);
+
+  const updatePhase = useCallback((id: string, patch: Partial<typeof phases[0]>) => {
+    setPhases((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  }, []);
+
+  const removePhase = useCallback((id: string) => {
+    setPhases((prev) => prev.filter((p) => p.id !== id));
+    setActivePhaseId(null);
+  }, []);
+
+  const reorderPhases = useCallback((fromIndex: number, toIndex: number) => {
+    setPhases((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, removed);
+      return next.map((p, index) => ({ ...p, order: index }));
+    });
+  }, []);
+
+  const handleSubmit = useCallback(() => {
+    if (!title.trim()) return;
+
+    const goalData = {
+      title: title.trim(),
+      description: description.trim() || undefined,
+      targetDate: targetDate ? new Date(targetDate).getTime() : undefined,
+      color,
+    };
+
+    if (editGoal) {
+      updateGoal(editGoal.id, { ...goalData, status: "active" });
+      // Update phases
+      phases.forEach((phase, index) => {
+        const existingPhase = editGoal.phases.find((p) => p.id === phase.id);
+        if (existingPhase) {
+          // Update existing
+          // Note: phases are updated via updatePhase in the store
+        } else {
+          // Add new
+          addPhase(editGoal.id, {
+            title: phase.title,
+            description: phase.description || undefined,
+            order: index,
+            dependsOn: phase.dependsOn.length > 0 ? phase.dependsOn : undefined,
+            targetDate: undefined,
+            status: "pending",
+          });
+        }
+      });
+      // Remove deleted phases
+      editGoal.phases.forEach((p) => {
+        if (!phases.find((ph) => ph.id === p.id)) {
+          // Phase was removed - handled by removePhase in store
+        }
+      });
+      toast("Goal updated");
+    } else {
+      const goalId = addGoal({ ...goalData, status: "active" });
+      phases.forEach((phase, index) => {
+        if (phase.title.trim()) {
+          addPhase(goalId, {
+            title: phase.title.trim(),
+            description: phase.description.trim() || undefined,
+            order: index,
+            dependsOn: phase.dependsOn.length > 0 ? phase.dependsOn : undefined,
+            targetDate: undefined,
+            status: "pending",
+          });
+        }
+      });
+      toast(`Goal created: ${title.trim()}`);
+    }
+    onClose();
+  }, [title, description, targetDate, color, phases, editGoal, addGoal, updateGoal, addPhase, toast, onClose]);
+
+  const availableDependencies = useMemo(() => {
+    if (editGoal) {
+      return editGoal.phases.filter((p) => !phases.find((ph) => ph.id === p.id));
+    }
+    return [];
+  }, [editGoal, phases]);
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={editGoal ? "Edit Goal" : "Create New Goal"}
+      className="max-w-2xl max-h-[90dvh]"
+      footer={
+        <div className="flex gap-2 flex-wrap justify-end">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" className="flex-1" disabled={!title.trim()} onClick={handleSubmit}>
+            {editGoal ? "Save Changes" : "Create Goal"}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-6">
+        {/* Goal Basics */}
+        <section className="space-y-4">
+          <h4 className="text-[15px] font-semibold text-primary flex items-center gap-2">
+            <Target size={16} className="text-accent" /> Goal Details
+          </h4>
+          
+          <Field label="Goal Title">
+            <Input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="What do you want to achieve?"
+            />
+          </Field>
+
+          <Field label="Description (optional)">
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Add context, motivation, or success criteria..."
+              rows={3}
+            />
+          </Field>
+
+          <Field label="Target Date (optional)">
+            <Input
+              type="date"
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
+              min={dayKeyFor()}
+            />
+          </Field>
+
+          <Field label="Color Theme">
+            <div className="flex flex-wrap gap-2">
+              {GOAL_COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  onClick={() => setColor(c.value)}
+                  className={cn(
+                    "pressable flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 transition-colors",
+                    color === c.value
+                      ? "border-accent bg-accent/10"
+                      : "border-border bg-surface-elevated hover:border-accent/30"
+                  )}
+                  style={{ backgroundColor: `${c.value}15` }}
+                >
+                  <c.icon size={14} style={{ color: c.value }} />
+                  <span className="text-[12px] font-medium" style={{ color: c.value }}>
+                    {c.name}
+                  </span>
+                  {color === c.value && <Check size={14} className="text-accent" />}
+                </button>
+              ))}
+            </div>
+          </Field>
+        </section>
+
+        {/* Phases */}
+        <section className="space-y-4 border-t border-border-soft pt-6">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[15px] font-semibold text-primary flex items-center gap-2">
+              <Flag size={16} className="text-accent" /> Phases
+            </h4>
+            <Button variant="primary" size="sm" onClick={addCustomPhase}>
+              <Plus size={14} /> Add Phase
+            </Button>
+          </div>
+
+          {phases.length === 0 && (
+            <div className="text-center py-8 rounded-[16px] border border-dashed border-border bg-surface-elevated/50">
+              <Flag className="mx-auto mb-3 h-10 w-10 text-muted" />
+              <p className="text-muted mb-4">No phases added yet</p>
+              <Button variant="primary" onClick={addCustomPhase}>
+                <Plus size={14} /> Add Phase
+              </Button>
+            </div>
+          )}
+
+          {phases.map((phase, index) => (
+            <PhaseEditorRow
+              key={phase.id}
+              phase={phase}
+              index={index}
+              allPhases={phases}
+              availableDependencies={availableDependencies}
+              isActive={activePhaseId === phase.id}
+              onActivate={setActivePhaseId}
+              onUpdate={updatePhase}
+              onRemove={removePhase}
+              onReorder={reorderPhases}
+            />
+          ))}
+        </section>
+
+        {/* Summary */}
+        <div className="rounded-[16px] bg-surface-elevated/50 p-4 border border-border-soft">
+          <div className="flex items-center gap-2 text-[13px] text-muted mb-2">
+            <span className="font-medium text-primary">Summary:</span>
+            <span>{phases.length} phase{phases.length !== 1 ? "s" : ""}</span>
+            {phases.some((p) => p.dependsOn.length > 0) && (
+              <>
+                <span>·</span>
+                <span className="text-amber-400">Has dependencies</span>
+              </>
+            )}
+            {targetDate && (
+              <>
+                <span>·</span>
+                <span>Target: {new Date(targetDate).toLocaleDateString()}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+interface PhaseEditorRowProps {
+  phase: { id: string; title: string; description: string; dependsOn: string[] };
+  index: number;
+  allPhases: Array<{ id: string; title: string; description: string; dependsOn: string[] }>;
+  availableDependencies: Phase[];
+  isActive: boolean;
+  onActivate: (id: string | null) => void;
+  onUpdate: (id: string, patch: Partial<{ id: string; title: string; description: string; dependsOn: string[] }>) => void;
+  onRemove: (id: string) => void;
+  onReorder: (from: number, to: number) => void;
+}
+
+function PhaseEditorRow({
+  phase,
+  index,
+  allPhases,
+  availableDependencies,
+  isActive,
+  onActivate,
+  onUpdate,
+  onRemove,
+  onReorder,
+}: PhaseEditorRowProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [showDepPicker, setShowDepPicker] = useState(false);
+
+  const otherPhases = allPhases.filter((p) => p.id !== phase.id);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData("text/plain", phase.id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData("text/plain");
+    const fromIndex = allPhases.findIndex((p) => p.id === draggedId);
+    if (fromIndex !== -1 && fromIndex !== index) {
+      onReorder(fromIndex, index);
+    }
+  };
+
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className={cn(
+        "rounded-[16px] border bg-surface p-4 transition-all duration-200",
+        isActive ? "border-accent/30 bg-accent/5 ring-1 ring-accent/10" : "border-border hover:border-border",
+        isEditing && "ring-2 ring-accent/20"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <button
+          onClick={() => onActivate(isActive ? null : phase.id)}
+          className="pressable flex-shrink-0 mt-1 h-6 w-6 flex items-center justify-center rounded-lg bg-surface-elevated text-muted hover:bg-accent/10 hover:text-accent"
+          aria-label="Expand to edit"
+        >
+          <GripVertical size={16} />
+        </button>
+
+        <div className="flex-1 min-w-0">
+          {isEditing ? (
+            <div className="space-y-3">
+              <Input
+                autoFocus
+                value={phase.title}
+                onChange={(e) => onUpdate(phase.id, { title: e.target.value })}
+                placeholder="Phase title"
+                onBlur={() => setIsEditing(false)}
+                onKeyDown={(e) => e.key === "Enter" && setIsEditing(false)}
+              />
+              <Textarea
+                value={phase.description}
+                onChange={(e) => onUpdate(phase.id, { description: e.target.value })}
+                placeholder="What happens in this phase?"
+                rows={2}
+              />
+              
+              {/* Dependencies */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[12px] font-medium text-secondary">Dependencies</label>
+                  <button
+                    onClick={() => setShowDepPicker(!showDepPicker)}
+                    className="pressable text-[12px] text-accent hover:underline"
+                  >
+                    {showDepPicker ? "Done" : "Add dependency"}
+                  </button>
+                </div>
+                
+                {phase.dependsOn.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {phase.dependsOn.map((depId) => {
+                      const dep = allPhases.find((p) => p.id === depId) || availableDependencies.find((p) => p.id === depId);
+                      return dep ? (
+                        <span
+                          key={depId}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-400/10 text-amber-400"
+                        >
+                          {dep.title}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onUpdate(phase.id, { dependsOn: phase.dependsOn.filter((d) => d !== depId) });
+                            }}
+                            className="pressable p-0.5 hover:bg-amber-400/20 rounded"
+                          >
+                            <X size={10} />
+                          </button>
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+
+                {showDepPicker && otherPhases.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {otherPhases.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          onUpdate(phase.id, { dependsOn: [...phase.dependsOn, p.id] });
+                          setShowDepPicker(false);
+                        }}
+                        disabled={phase.dependsOn.includes(p.id)}
+                        className="pressable px-2 py-1 rounded-full text-[11px] font-medium border border-border bg-surface-elevated text-secondary hover:bg-accent/10 hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {p.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div onClick={() => setIsEditing(true)} className="cursor-pointer">
+              <div className="flex items-center gap-2">
+                <h5 className="font-medium text-primary truncate">{phase.title || "Untitled Phase"}</h5>
+                {phase.dependsOn.length > 0 && (
+                  <Flag className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
+                )}
+              </div>
+              {phase.description && (
+                <p className="mt-1 text-[13px] text-muted line-clamp-2">{phase.description}</p>
+              )}
+              {phase.dependsOn.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {phase.dependsOn.map((depId) => {
+                    const dep = allPhases.find((p) => p.id === depId) || availableDependencies.find((p) => p.id === depId);
+                    return dep ? (
+                      <span
+                        key={depId}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-400/10 text-amber-400"
+                      >
+                        Waits for: {dep.title}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1">
+          {index > 0 && (
+            <button
+              onClick={() => onReorder(index, index - 1)}
+              className="pressable p-1.5 rounded-lg text-muted hover:bg-surface-elevated hover:text-primary"
+              aria-label="Move up"
+            >
+              <ChevronUp size={16} />
+            </button>
+          )}
+          {index < allPhases.length - 1 && (
+            <button
+              onClick={() => onReorder(index, index + 1)}
+              className="pressable p-1.5 rounded-lg text-muted hover:bg-surface-elevated hover:text-primary"
+              aria-label="Move down"
+            >
+              <ChevronDown size={16} />
+            </button>
+          )}
+          <button
+            onClick={() => onRemove(phase.id)}
+            className="pressable p-1.5 rounded-lg text-muted hover:bg-high/10 hover:text-high"
+            aria-label="Remove phase"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+import { X, ChevronUp, ChevronDown, Check } from "lucide-react";
