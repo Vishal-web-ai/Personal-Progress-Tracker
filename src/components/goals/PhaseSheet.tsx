@@ -95,9 +95,11 @@ export function PhaseSheet({ goal, phaseId, onClose, onStartPhase, onCompletePha
       onClose={onClose}
       title={title.trim() || "Phase"}
       footer={
-        <Button variant="primary" size="lg" className="w-full" onClick={handleSave} disabled={!dirty || !title.trim()}>
-          <Check size={16} /> Save changes
-        </Button>
+        <div className="flex justify-end">
+          <Button variant="secondary" size="md" onClick={handleSave} disabled={!dirty || !title.trim()}>
+            <Check size={16} /> Save changes
+          </Button>
+        </div>
       }
     >
       <div className="space-y-6">
