@@ -345,13 +345,20 @@ function PhaseEditorRow({
 
         <div className="flex-1 min-w-0">
           {isEditing ? (
-            <div className="space-y-3">
+            <div
+              className="space-y-3"
+              onBlur={(e) => {
+                const next = e.relatedTarget as Node | null;
+                if (!e.currentTarget.contains(next)) {
+                  setIsEditing(false);
+                }
+              }}
+            >
               <Input
                 autoFocus
                 value={phase.title}
                 onChange={(e) => onUpdate(phase.id, { title: e.target.value })}
                 placeholder="Phase title"
-                onBlur={() => setIsEditing(false)}
                 onKeyDown={(e) => e.key === "Enter" && setIsEditing(false)}
               />
               <Textarea
@@ -361,9 +368,17 @@ function PhaseEditorRow({
                 rows={2}
               />
               {isNew && (
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
                   <Button variant="secondary" size="sm" onClick={() => onRemove(phase.id)}>
                     Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={!phase.title.trim()}
+                    onClick={() => setIsEditing(false)}
+                  >
+                    Add
                   </Button>
                 </div>
               )}
