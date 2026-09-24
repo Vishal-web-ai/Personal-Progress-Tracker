@@ -6,10 +6,13 @@ import { cn } from "@/lib/utils";
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Form";
+import { DateField } from "@/components/ui/DateField";
 import { useApp } from "@/store/app-store";
 import { useToast } from "@/store/toast-store";
 import type { Goal, PhaseStatus } from "@/types";
-import { dayKeyFor } from "@/lib/time";
+import { startOfDay } from "@/lib/time";
+
+const TODAY_TS = startOfDay(new Date());
 
 interface PhaseSheetProps {
   goal: Goal;
@@ -36,10 +39,8 @@ export function PhaseSheet({ goal, phaseId, onClose, onStartPhase, onCompletePha
 
   const [title, setTitle] = useState(() => phase?.title ?? "");
   const [description, setDescription] = useState(() => phase?.description ?? "");
-  const [startDate, setStartDate] = useState(() =>
-    phase?.startDate ? new Date(phase.startDate).toISOString().split("T")[0] : ""
-  );
-  const [endDate, setEndDate] = useState(() => (phase?.endDate ? new Date(phase.endDate).toISOString().split("T")[0] : ""));
+  const [startDate, setStartDate] = useState<number | undefined>(phase?.startDate ?? undefined);
+  const [endDate, setEndDate] = useState<number | undefined>(phase?.endDate ?? undefined);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   if (!phase) return null;
@@ -57,12 +58,11 @@ export function PhaseSheet({ goal, phaseId, onClose, onStartPhase, onCompletePha
   const dirty =
     title !== phase.title ||
     description !== (phase.description ?? "") ||
-    startDate !== (phase.startDate ? new Date(phase.startDate).toISOString().split("T")[0] : "") ||
-    endDate !== (phase.endDate ? new Date(phase.endDate).toISOString().split("T")[0] : "");
+    startDate !== phase.startDate ||
+    endDate !== phase.endDate;
 
   const fmtDate = (d?: number) => (d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null);
-  const phaseRange =
-    startDate && endDate ? `${fmtDate(new Date(startDate).getTime())} – ${fmtDate(new Date(endDate).getTime())}` : null;
+  const phaseRange = startDate && endDate ? `${fmtDate(startDate)} – ${fmtDate(endDate)}` : null;
   const est = fmtMin(phase.estimatedMinutes);
   const actual = phase.actualMinutes && phase.actualMinutes > 0 ? fmtMin(phase.actualMinutes) : null;
 
@@ -71,8 +71,8 @@ export function PhaseSheet({ goal, phaseId, onClose, onStartPhase, onCompletePha
     updatePhase(goal.id, phase.id, {
       title: title.trim(),
       description: description.trim() || undefined,
-      startDate: startDate ? new Date(startDate).getTime() : undefined,
-      endDate: endDate ? new Date(endDate).getTime() : undefined,
+      startDate,
+      endDate,
     });
     toast("Phase updated");
   };
@@ -125,21 +125,10 @@ export function PhaseSheet({ goal, phaseId, onClose, onStartPhase, onCompletePha
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Start date">
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                min={dayKeyFor()}
-                max={endDate || undefined}
-              />
+              <DateField value={startDate} onChange={setStartDate} min={TODAY_TS} max={endDate} />
             </Field>
             <Field label="End date">
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={startDate ? new Date(startDate).toISOString().split("T")[0] : dayKeyFor()}
-              />
+              <DateField value={endDate} onChange={setEndDate} min={startDate ?? TODAY_TS} />
             </Field>
           </div>
         </div>

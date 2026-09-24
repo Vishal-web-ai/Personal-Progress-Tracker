@@ -20,10 +20,13 @@ import { cn } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Form";
+import { DateField } from "@/components/ui/DateField";
 import { useApp } from "@/store/app-store";
 import { useToast } from "@/store/toast-store";
 import type { Goal, PhaseTaskStatus } from "@/types";
-import { dayKeyFor } from "@/lib/time";
+import { startOfDay } from "@/lib/time";
+
+const TODAY_TS = startOfDay(new Date());
 
 const GOAL_COLORS = [
   { value: "var(--note-mint-swatch)", name: "Mint", icon: Brain },
@@ -112,7 +115,7 @@ export function PhaseBuilderModal({
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [targetDate, setTargetDate] = useState("");
+  const [targetDate, setTargetDate] = useState<number | undefined>(undefined);
   const [color, setColor] = useState(GOAL_COLORS[0].value);
   const [phases, setPhases] = useState<DraftPhase[]>([]);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, string>>({});
@@ -122,7 +125,7 @@ export function PhaseBuilderModal({
     if (editGoal) {
       setTitle(editGoal.title);
       setDescription(editGoal.description || "");
-      setTargetDate(editGoal.targetDate ? new Date(editGoal.targetDate).toISOString().split("T")[0] : "");
+      setTargetDate(editGoal.targetDate ?? undefined);
       setColor(editGoal.color || GOAL_COLORS[0].value);
       setPhases(
         editGoal.phases.map((p) => ({
@@ -137,7 +140,7 @@ export function PhaseBuilderModal({
     } else {
       setTitle("");
       setDescription("");
-      setTargetDate("");
+      setTargetDate(undefined);
       setColor(GOAL_COLORS[0].value);
       setPhases([]);
     }
@@ -212,7 +215,7 @@ export function PhaseBuilderModal({
       updateGoal(editGoal.id, {
         title: title.trim(),
         description: description.trim() || undefined,
-        targetDate: targetDate ? new Date(targetDate).getTime() : undefined,
+        targetDate: targetDate ?? undefined,
         color,
         status: "active",
       });
@@ -262,7 +265,7 @@ export function PhaseBuilderModal({
       const goalId = addGoal({
         title: title.trim(),
         description: description.trim() || undefined,
-        targetDate: targetDate ? new Date(targetDate).getTime() : undefined,
+        targetDate: targetDate ?? undefined,
         color,
         status: "active",
       });
@@ -364,7 +367,7 @@ export function PhaseBuilderModal({
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field label="Target date" hint="Optional.">
-          <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} min={dayKeyFor()} />
+          <DateField value={targetDate} onChange={setTargetDate} min={TODAY_TS} />
         </Field>
         <div>
           <span className="mb-1.5 block text-[13px] font-medium text-secondary">Color theme</span>
@@ -441,21 +444,18 @@ export function PhaseBuilderModal({
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Start date">
-              <Input
-                type="date"
-                value={phase.startDate ? new Date(phase.startDate).toISOString().split("T")[0] : ""}
-                onChange={(e) =>
-                  updateDraftPhase(phase.id, { startDate: e.target.value ? new Date(e.target.value).getTime() : undefined })
-                }
+              <DateField
+                value={phase.startDate}
+                onChange={(v) => updateDraftPhase(phase.id, { startDate: v })}
+                min={TODAY_TS}
+                max={phase.endDate}
               />
             </Field>
             <Field label="End date">
-              <Input
-                type="date"
-                value={phase.endDate ? new Date(phase.endDate).toISOString().split("T")[0] : ""}
-                onChange={(e) =>
-                  updateDraftPhase(phase.id, { endDate: e.target.value ? new Date(e.target.value).getTime() : undefined })
-                }
+              <DateField
+                value={phase.endDate}
+                onChange={(v) => updateDraftPhase(phase.id, { endDate: v })}
+                min={phase.startDate ?? TODAY_TS}
               />
             </Field>
           </div>

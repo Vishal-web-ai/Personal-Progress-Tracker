@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Flag, Clock, TrendingUp, MoreHorizontal, Plus, Calendar } from "lucide-react";
+import { ChevronRight, Flag, Clock, TrendingUp, MoreHorizontal, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { Goal, Phase, PhaseStatus } from "@/types";
@@ -63,10 +63,7 @@ export function PhaseCard({ phase, goalColor, onOpen }: PhaseCardProps) {
               {phaseDates && (
                 <>
                   <span aria-hidden>·</span>
-                  <span className="flex items-center gap-1">
-                    <Calendar size={12} />
-                    {phaseDates}
-                  </span>
+                  <span>{phaseDates}</span>
                 </>
               )}
               {phase.estimatedMinutes && (
@@ -182,8 +179,7 @@ export function GoalCard({ goal, onEdit, onPhaseOpen }: GoalCardProps) {
             <span className="font-medium text-primary">{goal.progress}%</span> complete
           </span>
           {goal.targetDate && (
-            <span className="flex items-center gap-1.5 rounded-full bg-surface-elevated px-2.5 py-1">
-              <Calendar size={12} />
+            <span className="rounded-full bg-surface-elevated px-2.5 py-1">
               Target: {new Date(goal.targetDate).toLocaleDateString()}
             </span>
           )}

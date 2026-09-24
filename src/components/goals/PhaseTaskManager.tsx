@@ -1,15 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Flag, Calendar, Clock, Target, MoreHorizontal, Check, X, GripVertical, TrendingUp } from "lucide-react";
+import { Plus, Trash2, Flag, Clock, Target, MoreHorizontal, Check, X, GripVertical, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea, Select } from "@/components/ui/Form";
+import { DateField } from "@/components/ui/DateField";
 import { useApp } from "@/store/app-store";
 import { useToast } from "@/store/toast-store";
 import { PhaseTask, PhaseTaskStatus } from "@/types";
-import { dayKeyFor } from "@/lib/time";
+import { startOfDay } from "@/lib/time";
+
+const TODAY_TS = startOfDay(new Date());
 
 const PRIORITIES = [
   { value: "high", label: "High", dot: "var(--priority-high)" },
@@ -35,7 +38,7 @@ export function PhaseTaskManager({ phaseId, goalId, goalColor, onClose }: PhaseT
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [estimatedMinutes, setEstimatedMinutes] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState<number | undefined>(undefined);
   const [isMilestone, setIsMilestone] = useState(false);
   const [tags, setTags] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -49,7 +52,7 @@ export function PhaseTaskManager({ phaseId, goalId, goalColor, onClose }: PhaseT
       title: title.trim(),
       description: description.trim() || undefined,
       estimatedMinutes: estimatedMinutes ? parseInt(estimatedMinutes) : undefined,
-      dueDate: dueDate ? new Date(dueDate).getTime() : undefined,
+      dueDate: dueDate ?? undefined,
       isMilestone,
       tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
       order,
@@ -58,7 +61,7 @@ export function PhaseTaskManager({ phaseId, goalId, goalColor, onClose }: PhaseT
     setTitle("");
     setDescription("");
     setEstimatedMinutes("");
-    setDueDate("");
+    setDueDate(undefined);
     setIsMilestone(false);
     setTags("");
     setShowAddForm(false);
@@ -69,9 +72,6 @@ export function PhaseTaskManager({ phaseId, goalId, goalColor, onClose }: PhaseT
     const patch: Partial<PhaseTask> = { ...editForm };
     if (patch.estimatedMinutes !== undefined) {
       patch.estimatedMinutes = parseInt(String(patch.estimatedMinutes)) as any;
-    }
-    if (patch.dueDate !== undefined && typeof patch.dueDate === "string") {
-      patch.dueDate = new Date(patch.dueDate).getTime();
     }
     updatePhaseTask(phaseId, taskId, patch);
     setEditingTaskId(null);
@@ -92,7 +92,7 @@ export function PhaseTaskManager({ phaseId, goalId, goalColor, onClose }: PhaseT
       title: task.title,
       description: task.description,
       estimatedMinutes: task.estimatedMinutes?.toString() || "",
-      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : "",
+      dueDate: task.dueDate ?? undefined,
       isMilestone: task.isMilestone,
       tags: task.tags?.join(", ") || "",
       status: task.status,
@@ -206,12 +206,7 @@ export function PhaseTaskManager({ phaseId, goalId, goalColor, onClose }: PhaseT
                 />
               </Field>
               <Field label="Due Date (optional)">
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  min={dayKeyFor()}
-                />
+                <DateField value={dueDate} onChange={setDueDate} min={TODAY_TS} />
               </Field>
             </div>
             <div className="flex items-center gap-4">
@@ -350,12 +345,7 @@ function PhaseTaskItem({
             />
           </Field>
           <Field label="Due Date">
-            <Input
-              type="date"
-              value={editForm.dueDate || ""}
-              onChange={(e) => onUpdate({ dueDate: e.target.value })}
-              min={dayKeyFor()}
-            />
+            <DateField value={editForm.dueDate} onChange={(v) => onUpdate({ dueDate: v })} min={TODAY_TS} />
           </Field>
         </div>
         <div className="flex items-center gap-4">
@@ -455,12 +445,7 @@ function PhaseTaskItem({
                 {Math.round(task.actualMinutes / 60)}h {task.actualMinutes % 60}m
               </span>
             )}
-            {task.dueDate && (
-              <span className="flex items-center gap-1">
-                <Calendar size={11} />
-                {new Date(task.dueDate).toLocaleDateString()}
-              </span>
-            )}
+            {task.dueDate && <span>{new Date(task.dueDate).toLocaleDateString()}</span>}
             {task.tags && task.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {task.tags.map((tag) => (
