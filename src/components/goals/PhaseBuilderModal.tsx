@@ -278,13 +278,13 @@ export function PhaseBuilderModal({
 }
 
 interface PhaseEditorRowProps {
-  phase: { id: string; title: string; description: string; dependsOn: string[] };
+  phase: { id: string; title: string; description: string };
   index: number;
-  allPhases: Array<{ id: string; title: string; description: string; dependsOn: string[] }>;
+  allPhases: Array<{ id: string; title: string; description: string }>;
   isActive: boolean;
   initiallyEditing?: boolean;
   onActivate: (id: string | null) => void;
-  onUpdate: (id: string, patch: Partial<{ id: string; title: string; description: string; dependsOn: string[] }>) => void;
+  onUpdate: (id: string, patch: Partial<{ id: string; title: string; description: string }>) => void;
   onRemove: (id: string) => void;
   onReorder: (from: number, to: number) => void;
 }
@@ -293,7 +293,6 @@ function PhaseEditorRow({
   phase,
   index,
   allPhases,
-  availableDependencies,
   isActive,
   initiallyEditing = false,
   onActivate,
