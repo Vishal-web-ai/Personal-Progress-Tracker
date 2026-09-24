@@ -6,6 +6,16 @@ import { cn } from "@/lib/utils";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { Goal, Phase, PhaseStatus, PhaseTask } from "@/types";
 
+function formatPhaseDates(phase: Phase): string | null {
+  const fmt = (v?: number) => (v ? new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null);
+  const start = fmt(phase.startDate);
+  const end = fmt(phase.endDate);
+  if (start && end) return `${start} – ${end}`;
+  if (start) return `Starts ${start}`;
+  if (end) return `Ends ${end}`;
+  return null;
+}
+
 interface PhaseProgressBarProps {
   phase: Phase;
   goalColor: string;
@@ -17,6 +27,7 @@ export function PhaseProgressBar({ phase, goalColor, onClick, isActive }: PhaseP
   const totalTasks = phase.tasks.length;
   const completedTasks = phase.tasks.filter((t) => t.status === "done").length;
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const phaseDates = formatPhaseDates(phase);
   
   const isBlocked = phase.dependsOn && phase.dependsOn.length > 0;
   const hasMilestones = phase.tasks.some((t) => t.isMilestone);
@@ -49,6 +60,15 @@ export function PhaseProgressBar({ phase, goalColor, onClick, isActive }: PhaseP
             <h4 className="text-[15px] font-semibold text-primary truncate">{phase.title}</h4>
             <div className="flex items-center gap-2 mt-1 text-[12px] text-muted">
               <span className="tabular-nums">{completedTasks}/{totalTasks} tasks</span>
+              {phaseDates && (
+                <>
+                  <span>·</span>
+                  <span className="flex items-center gap-1">
+                    <Calendar size={12} />
+                    {phaseDates}
+                  </span>
+                </>
+              )}
               {phase.estimatedMinutes && (
                 <>
                   <span>·</span>
@@ -169,6 +189,7 @@ export function ExpandablePhase({
 
   const canStart = phase.status === "pending" && !isBlocked;
   const canComplete = phase.status === "active" && progress === 100;
+  const phaseDates = formatPhaseDates(phase);
 
   return (
     <div className="rounded-[18px] border border-border bg-surface overflow-hidden">
@@ -186,6 +207,15 @@ export function ExpandablePhase({
             <h4 className="text-[15px] font-semibold text-primary truncate">{phase.title}</h4>
             <div className="flex items-center gap-2 mt-1 text-[12px] text-muted">
               <span className="tabular-nums">{completedTasks}/{totalTasks} tasks</span>
+              {phaseDates && (
+                <>
+                  <span>·</span>
+                  <span className="flex items-center gap-1">
+                    <Calendar size={12} />
+                    {phaseDates}
+                  </span>
+                </>
+              )}
               {phase.estimatedMinutes && (
                 <>
                   <span>·</span>

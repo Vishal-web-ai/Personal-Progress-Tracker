@@ -19,6 +19,8 @@ const GOAL_COLORS = [
   { value: "var(--note-violet-swatch)", name: "Violet", icon: Award },
 ];
 
+type DraftPhase = { id: string; title: string; description: string; startDate?: number; endDate?: number };
+
 export function PhaseBuilderModal({
   open,
   onClose,
@@ -28,14 +30,14 @@ export function PhaseBuilderModal({
   onClose: () => void;
   editGoal?: Goal | null;
 }) {
-  const { addGoal, updateGoal, addPhase, goals } = useApp();
+  const { addGoal, updateGoal, addPhase, updatePhase, removePhase, goals } = useApp();
   const { toast } = useToast();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [color, setColor] = useState(GOAL_COLORS[0].value);
-  const [phases, setPhases] = useState<Array<{ id: string; title: string; description: string }>>([]);
+  const [phases, setPhases] = useState<DraftPhase[]>([]);
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
 
   // Initialize from editGoal
@@ -51,6 +53,8 @@ export function PhaseBuilderModal({
             id: p.id,
             title: p.title,
             description: p.description || "",
+            startDate: p.startDate,
+            endDate: p.endDate,
           }))
         );
       } else {
@@ -74,11 +78,11 @@ export function PhaseBuilderModal({
     setActivePhaseId(newPhase.id);
   }, []);
 
-  const updatePhase = useCallback((id: string, patch: Partial<typeof phases[0]>) => {
+  const updateDraftPhase = useCallback((id: string, patch: Partial<typeof phases[0]>) => {
     setPhases((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   }, []);
 
-  const removePhase = useCallback((id: string) => {
+  const removeDraftPhase = useCallback((id: string) => {
     setPhases((prev) => prev.filter((p) => p.id !== id));
     setActivePhaseId(null);
   }, []);
@@ -104,27 +108,30 @@ export function PhaseBuilderModal({
 
     if (editGoal) {
       updateGoal(editGoal.id, { ...goalData, status: "active" });
-      // Update phases
       phases.forEach((phase, index) => {
         const existingPhase = editGoal.phases.find((p) => p.id === phase.id);
         if (existingPhase) {
-          // Update existing
-          // Note: phases are updated via updatePhase in the store
-        } else {
-          // Add new
-          addPhase(editGoal.id, {
-            title: phase.title,
-            description: phase.description || undefined,
+          updatePhase(editGoal.id, phase.id, {
+            title: phase.title.trim(),
+            description: phase.description.trim() || undefined,
             order: index,
-            targetDate: undefined,
+            startDate: phase.startDate,
+            endDate: phase.endDate,
+          });
+        } else if (phase.title.trim()) {
+          addPhase(editGoal.id, {
+            title: phase.title.trim(),
+            description: phase.description.trim() || undefined,
+            order: index,
             status: "pending",
+            startDate: phase.startDate,
+            endDate: phase.endDate,
           });
         }
       });
-      // Remove deleted phases
       editGoal.phases.forEach((p) => {
         if (!phases.find((ph) => ph.id === p.id)) {
-          // Phase was removed - handled by removePhase in store
+          removePhase(editGoal.id, p.id);
         }
       });
       toast("Goal updated");
@@ -136,15 +143,16 @@ export function PhaseBuilderModal({
             title: phase.title.trim(),
             description: phase.description.trim() || undefined,
             order: index,
-            targetDate: undefined,
             status: "pending",
+            startDate: phase.startDate,
+            endDate: phase.endDate,
           });
         }
       });
       toast(`Goal created: ${title.trim()}`);
     }
     onClose();
-  }, [title, description, targetDate, color, phases, editGoal, addGoal, updateGoal, addPhase, toast, onClose]);
+  }, [title, description, targetDate, color, phases, editGoal, addGoal, updateGoal, addPhase, updatePhase, removePhase, toast, onClose]);
 
   return (
     <Modal
@@ -252,8 +260,8 @@ export function PhaseBuilderModal({
               isActive={activePhaseId === phase.id}
               initiallyEditing={phase.id.startsWith("ph-new-")}
               onActivate={setActivePhaseId}
-              onUpdate={updatePhase}
-              onRemove={removePhase}
+              onUpdate={updateDraftPhase}
+              onRemove={removeDraftPhase}
               onReorder={reorderPhases}
             />
           ))}
@@ -278,13 +286,13 @@ export function PhaseBuilderModal({
 }
 
 interface PhaseEditorRowProps {
-  phase: { id: string; title: string; description: string };
+  phase: DraftPhase;
   index: number;
-  allPhases: Array<{ id: string; title: string; description: string }>;
+  allPhases: DraftPhase[];
   isActive: boolean;
   initiallyEditing?: boolean;
   onActivate: (id: string | null) => void;
-  onUpdate: (id: string, patch: Partial<{ id: string; title: string; description: string }>) => void;
+  onUpdate: (id: string, patch: Partial<DraftPhase>) => void;
   onRemove: (id: string) => void;
   onReorder: (from: number, to: number) => void;
 }
@@ -367,6 +375,26 @@ function PhaseEditorRow({
                 placeholder="What happens in this phase?"
                 rows={2}
               />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Start Date">
+                  <Input
+                    type="date"
+                    value={phase.startDate ? new Date(phase.startDate).toISOString().split("T")[0] : ""}
+                    onChange={(e) =>
+                      onUpdate(phase.id, { startDate: e.target.value ? new Date(e.target.value).getTime() : undefined })
+                    }
+                  />
+                </Field>
+                <Field label="End Date">
+                  <Input
+                    type="date"
+                    value={phase.endDate ? new Date(phase.endDate).toISOString().split("T")[0] : ""}
+                    onChange={(e) =>
+                      onUpdate(phase.id, { endDate: e.target.value ? new Date(e.target.value).getTime() : undefined })
+                    }
+                  />
+                </Field>
+              </div>
               {isNew && (
                 <div className="flex justify-end gap-2">
                   <Button variant="secondary" size="sm" onClick={() => onRemove(phase.id)}>

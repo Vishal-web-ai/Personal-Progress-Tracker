@@ -94,6 +94,8 @@ export interface Phase {
   completedAt?: number;
   dependsOn?: string[]; // phase IDs that must complete first
   targetDate?: number; // optional target date for phase
+  startDate?: number; // planned start date (planning only)
+  endDate?: number; // planned end date (planning only)
   estimatedMinutes?: number; // sum of task estimates
   actualMinutes?: number; // sum of actual session time
 }
