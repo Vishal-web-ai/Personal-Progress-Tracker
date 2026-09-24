@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  *
  * Desktop (>= md / 768px): renders the existing full ProgressCard untouched.
  * Mobile (< 768px): shows a wide collapsed container — ring on the left plus a
- * row of three compact stats (Tasks completed, Current streak, Weekly goal).
+ * row of three compact stats (Daily, Weekly and Monthly done).
  *
  * On tap the small container fades/shrinks out while the full Today's Progress
  * card grows from the same spot; collapsing is the reverse. Same data, same
@@ -104,7 +104,7 @@ export function MobileProgress({ children }: { children?: React.ReactNode }) {
                   <span className="w-px shrink-0 self-stretch bg-border-soft" />
                   <Stat value={`${data.week.done} / ${data.week.total}`} label="Weekly done" className="flex-1" />
                   <span className="w-px shrink-0 self-stretch bg-border-soft" />
-                  <Stat value={data.streakLabel} label="Streak" className="flex-1" />
+                  <Stat value={`${data.month.done} / ${data.month.total}`} label="Monthly done" className="flex-1" />
                 </span>
               </button>
             </div>

@@ -10,8 +10,7 @@ import React, {
   useState,
 } from "react";
 import type { Area, Goal, GoalProgressPoint, Note, Phase, PhaseRetrospective, PhaseTask, Task, TaskBucket, WorkSession } from "@/types";
-import { AREAS, INITIAL_TASKS, buildSeedSessions } from "@/data/initial";
-import { buildSampleData } from "@/data/sample";
+import { AREAS } from "@/data/initial";
 import { dayKey, dayKeyFor, monthKey, weekRange } from "@/lib/time";
 import { readSavedAt, readSnapshot, writeSnapshot } from "@/lib/db";
 
@@ -48,7 +47,6 @@ interface AppContextValue {
   reAddTask: (id: string, day?: string) => void;
   updateTask: (id: string, patch: Partial<Omit<Task, "id" | "createdAt">>) => void;
   resetData: () => void;
-  loadSampleData: () => void;
   // Goals & Phases
   addGoal: (goal: Omit<Goal, "id" | "createdAt" | "progress" | "phases">) => string;
   updateGoal: (id: string, patch: Partial<Omit<Goal, "id" | "createdAt" | "progress">>) => void;
@@ -191,14 +189,28 @@ function decodeState(raw: string): AppState {
   };
 }
 
-function defaultSeed(): AppState {
-  return { 
-    tasks: INITIAL_TASKS, 
-    sessions: buildSeedSessions(), 
-    goals: [], 
+function emptyState(): AppState {
+  return {
+    tasks: [],
+    sessions: [],
+    goals: [],
     phaseRetrospectives: [],
-    settings: DEFAULT_SETTINGS 
+    settings: DEFAULT_SETTINGS,
   };
+}
+
+/**
+ * Strip rows created by the removed demo/seed tooling so a database polluted
+ * by the old seed-overwrite bug starts clean instead of showing fake history.
+ */
+function stripDemoTasks(tasks: Task[]): Task[] {
+  return tasks.filter(
+    (t) => !/^t(1|2|3|4|5|6|7|8|9|10)$/.test(t.id) && !t.id.startsWith("sample-")
+  );
+}
+
+function stripDemoSessions(sessions: WorkSession[]): WorkSession[] {
+  return sessions.filter((s) => !s.id.startsWith("seed") && !s.id.startsWith("sample-"));
 }
 
 function readLegacyLocalState(): AppState | null {
@@ -216,33 +228,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    
-    // 1. Immediately hydrate from localStorage (synchronous, fast)
+
+    // 1. Synchronous fast hydrate from the legacy localStorage blob (pre-IDB).
     const legacy = readLegacyLocalState();
     if (legacy) {
       setState({ ...legacy, tasks: rolloverTasks(legacy.tasks) });
-    } else {
-      // Fallback to seed data immediately so UI renders
-      setState(defaultSeed());
     }
 
-    // 2. Then load IndexedDB in background (async)
+    // 2. IndexedDB is the source of truth. The UI stays on the splash gate
+    //    until the read resolves, so the debounced persist (which only starts
+    //    once state becomes non-null) can never overwrite stored data with a
+    //    seed/empty fallback that raced in first.
     void (async () => {
       try {
         const db = await readSnapshot();
-        if (db && !cancelled) {
-          setState({ 
-            ...db, 
-            tasks: rolloverTasks(db.tasks.map((t) => migrateTask(t as unknown as Record<string, unknown>))),
-            sessions: db.sessions ?? [],
-            settings: { ...DEFAULT_SETTINGS, ...(db.settings ?? {}) },
-          });
+        if (!cancelled) {
+          if (db) {
+            setState({
+              tasks: rolloverTasks(
+                stripDemoTasks(db.tasks).map((t) => migrateTask(t as unknown as Record<string, unknown>))
+              ),
+              sessions: stripDemoSessions(db.sessions ?? []),
+              goals: db.goals ?? [],
+              phaseRetrospectives: db.phaseRetrospectives ?? [],
+              settings: { ...DEFAULT_SETTINGS, ...(db.settings ?? {}) },
+            });
+          } else if (!legacy) {
+            // Truly first launch — start empty, no bundled demo data.
+            setState(emptyState());
+          }
         }
       } catch {
-        // Ignore - keep current state (from localStorage or seed)
+        // DB unavailable — keep legacy if shown, otherwise start empty.
+        if (!cancelled && !legacy) setState(emptyState());
       }
-      
-      // 3. If legacy data existed, migrate it to IndexedDB
+
+      // 3. If legacy data existed, migrate it to IndexedDB.
       if (legacy && !cancelled) {
         try {
           await writeSnapshot({
@@ -254,7 +275,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           });
           window.localStorage.removeItem(STORAGE_KEY);
         } catch {
-          // Ignore migration errors
+          // Ignore migration errors — legacy stays in localStorage for retry.
         }
       }
     })();
@@ -913,14 +934,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const loadSampleData: AppContextValue["loadSampleData"] = useCallback(() => {
-    // Dev/test-only: inject rich synthetic history for exercising analytics.
-    setState((s) => {
-      if (!s) return s;
-      return { ...s, ...buildSampleData() };
-    });
-  }, []);
-
   const value = useMemo(() => {
     if (!state) return null;
     return {
@@ -941,7 +954,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       reAddTask,
       updateTask,
       resetData,
-      loadSampleData,
       // Goals & Phases
       addGoal,
       updateGoal,
@@ -975,7 +987,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     reAddTask,
     updateTask,
     resetData,
-    loadSampleData,
     addGoal,
     updateGoal,
     removeGoal,

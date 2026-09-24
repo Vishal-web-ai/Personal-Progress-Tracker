@@ -10,8 +10,6 @@ import {
   BarChart3,
   Settings,
   Sparkles,
-  User,
-  LogOut,
   ChevronDown,
   Flag,
 } from "lucide-react";
@@ -66,20 +64,6 @@ export function Sidebar() {
             </Link>
           );
         })}
-
-        {/* Profile link at bottom */}
-        <Link
-          href="/profile"
-          className={cn(
-            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] transition-colors duration-150",
-            active === "/profile"
-              ? "bg-surface-elevated font-semibold text-accent"
-              : "text-secondary hover:bg-surface-elevated/70 hover:text-primary"
-          )}
-        >
-          <User size={19} strokeWidth={active === "/profile" ? 2.2 : 1.8} />
-          Profile
-        </Link>
       </nav>
 
       <div className="px-6 py-6">
@@ -121,18 +105,6 @@ export function BottomNav() {
           </Link>
         );
       })}
-      <Link
-        href="/profile"
-        className={cn(
-          "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1.5 transition-colors duration-150",
-          active === "/profile" ? "bg-[#102C23] text-accent" : "text-[#91A49C] hover:text-secondary"
-        )}
-      >
-        <User size={21} strokeWidth={active === "/profile" ? 2.3 : 1.9} />
-        <span className={cn("text-[10px] leading-none", active === "/profile" ? "font-semibold" : "font-normal")}>
-          Profile
-        </span>
-      </Link>
     </nav>
   );
 }

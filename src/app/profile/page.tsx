@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Camera, Settings, LogOut, User, Bell, Moon, Palette } from "lucide-react";
+import { Camera, Settings, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/store/app-store";
 import { useToast } from "@/store/toast-store";
@@ -12,20 +12,16 @@ import { Modal } from "@/components/ui/Modal";
 import { compressImageToDataUrl } from "@/lib/avatar";
 import { useRouter } from "next/navigation";
 
-const DEV = process.env.NODE_ENV !== "production";
-
 export default function ProfilePage() {
   const router = useRouter();
-  const { settings, updateSettings, sessions, tasks, resetData, loadSampleData } = useApp();
+  const { settings, updateSettings, sessions, tasks, resetData } = useApp();
   const { toast } = useToast();
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(settings.userName);
   const [bio, setBio] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
-  const [confirmSample, setConfirmSample] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const isDemo = sessions.some((s) => s.id.startsWith("seed")) || tasks.some((t) => t.id.startsWith("sample"));
 
   const handleAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -49,13 +45,7 @@ export default function ProfilePage() {
   const doReset = () => {
     resetData();
     setConfirmClear(false);
-    toast("Demo data cleared — starting fresh", "info");
-  };
-
-  const doLoadSample = () => {
-    loadSampleData();
-    setConfirmSample(false);
-    toast("Sample history loaded", "info");
+    toast("All data cleared — starting fresh", "info");
   };
 
   const handleSignOut = () => {
@@ -185,37 +175,13 @@ export default function ProfilePage() {
         </h2>
         <div className="space-y-4">
           <div className="rounded-[16px] border border-border-soft bg-surface-elevated px-4 py-3.5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="flex items-center gap-1.5 text-[14px] font-medium text-primary">
-                  <User size={14} className="text-accent" />
-                  {isDemo ? "Demo data active" : "Demo data cleared"}
-                </p>
-                <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
-                  {tasks.length} tasks · {sessions.length} sessions recorded locally.
-                </p>
-              </div>
-            </div>
+            <p className="text-[12px] leading-relaxed text-muted">
+              {tasks.length} tasks · {sessions.length} sessions recorded locally.
+            </p>
           </div>
-          {DEV && (
-            <div className="rounded-[16px] border border-dashed border-border bg-surface-elevated/50 px-4 py-3.5">
-              <p className="flex items-center gap-1.5 text-[14px] font-medium text-primary">
-                <Settings size={14} className="text-accent" />
-                Developer testing
-              </p>
-              <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
-                Inject a synthetic 3-month history to preview the Analytics tab. Hidden in production builds.
-              </p>
-              <div className="mt-3">
-                <Button variant="secondary" onClick={() => setConfirmSample(true)}>
-                  <Settings size={16} /> Load sample data
-                </Button>
-              </div>
-            </div>
-          )}
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="danger" onClick={() => setConfirmClear(true)}>
-              <Settings size={16} /> Clear demo data
+              <Settings size={16} /> Clear all data
             </Button>
             <span className="text-[12px] text-muted">
               Removes all tasks and sessions. Not recoverable.
@@ -270,37 +236,13 @@ export default function ProfilePage() {
           <div className="border-t border-border-soft pt-4 space-y-4">
             <p className="text-[14px] font-medium text-primary">Danger Zone</p>
             <div className="rounded-[16px] border border-border-soft bg-surface-elevated px-4 py-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="flex items-center gap-1.5 text-[14px] font-medium text-primary">
-                    <Settings size={14} className="text-accent" />
-                    {isDemo ? "Demo data active" : "Demo data cleared"}
-                  </p>
-                  <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
-                    {tasks.length} tasks · {sessions.length} sessions recorded locally.
-                  </p>
-                </div>
-              </div>
+              <p className="text-[12px] leading-relaxed text-muted">
+                {tasks.length} tasks · {sessions.length} sessions recorded locally.
+              </p>
             </div>
-            {DEV && (
-              <div className="rounded-[16px] border border-dashed border-border bg-surface-elevated/50 px-4 py-3.5">
-                <p className="flex items-center gap-1.5 text-[14px] font-medium text-primary">
-                  <Settings size={14} className="text-accent" />
-                  Developer testing
-                </p>
-                <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
-                  Inject a synthetic 3-month history to preview the Analytics tab. Hidden in production builds.
-                </p>
-                <div className="mt-3">
-                  <Button variant="secondary" onClick={() => setConfirmSample(true)}>
-                    <Settings size={16} /> Load sample data
-                  </Button>
-                </div>
-              </div>
-            )}
             <div className="flex flex-wrap items-center gap-3">
               <Button variant="danger" onClick={() => setConfirmClear(true)}>
-                <Settings size={16} /> Clear demo data
+                <Settings size={16} /> Clear all data
               </Button>
               <span className="text-[12px] text-muted">
                 Removes all tasks and sessions. Not recoverable.
@@ -322,26 +264,6 @@ export default function ProfilePage() {
               Clear everything
             </Button>
             <Button variant="secondary" className="flex-1" onClick={() => setConfirmClear(false)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Confirm Sample Modal */}
-      <Modal open={confirmSample} onClose={() => setConfirmSample(false)} title="Load sample history?">
-        <div className="space-y-4">
-          <p className="text-[14px] leading-relaxed text-secondary">
-            This replaces the current tasks and sessions with a synthetic 3-month
-            history so you can preview the Analytics tab. Only available in this
-            local dev build. No undo — reload from fresh if you want the starter
-            data back.
-          </p>
-          <div className="flex gap-2">
-            <Button variant="primary" className="flex-1" onClick={doLoadSample}>
-              Load sample data
-            </Button>
-            <Button variant="secondary" className="flex-1" onClick={() => setConfirmSample(false)}>
               Cancel
             </Button>
           </div>

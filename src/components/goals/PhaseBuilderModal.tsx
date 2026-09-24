@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
-import { Plus, Trash2, GripVertical, Flag, Calendar, Target, Brain, Zap, BookOpen, Users, Award } from "lucide-react";
+import React, { useState, useCallback } from "react";
+import { Plus, Trash2, GripVertical, Flag, Target, Brain, Zap, BookOpen, Users, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Form";
 import { useApp } from "@/store/app-store";
 import { useToast } from "@/store/toast-store";
-import { Goal, Phase } from "@/types";
+import type { Goal } from "@/types";
 import { dayKeyFor } from "@/lib/time";
 
 const GOAL_COLORS = [
@@ -35,7 +35,7 @@ export function PhaseBuilderModal({
   const [description, setDescription] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [color, setColor] = useState(GOAL_COLORS[0].value);
-  const [phases, setPhases] = useState<Array<{ id: string; title: string; description: string; dependsOn: string[] }>>([]);
+  const [phases, setPhases] = useState<Array<{ id: string; title: string; description: string }>>([]);
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
 
   // Initialize from editGoal
@@ -51,7 +51,6 @@ export function PhaseBuilderModal({
             id: p.id,
             title: p.title,
             description: p.description || "",
-            dependsOn: p.dependsOn || [],
           }))
         );
       } else {
@@ -70,11 +69,10 @@ export function PhaseBuilderModal({
       id: `ph-new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       title: "",
       description: "",
-      dependsOn: phases.length > 0 ? [phases[phases.length - 1].id] : [],
     };
     setPhases((prev) => [...prev, newPhase]);
     setActivePhaseId(newPhase.id);
-  }, [phases.length]);
+  }, []);
 
   const updatePhase = useCallback((id: string, patch: Partial<typeof phases[0]>) => {
     setPhases((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
@@ -118,7 +116,6 @@ export function PhaseBuilderModal({
             title: phase.title,
             description: phase.description || undefined,
             order: index,
-            dependsOn: phase.dependsOn.length > 0 ? phase.dependsOn : undefined,
             targetDate: undefined,
             status: "pending",
           });
@@ -139,7 +136,6 @@ export function PhaseBuilderModal({
             title: phase.title.trim(),
             description: phase.description.trim() || undefined,
             order: index,
-            dependsOn: phase.dependsOn.length > 0 ? phase.dependsOn : undefined,
             targetDate: undefined,
             status: "pending",
           });
@@ -149,13 +145,6 @@ export function PhaseBuilderModal({
     }
     onClose();
   }, [title, description, targetDate, color, phases, editGoal, addGoal, updateGoal, addPhase, toast, onClose]);
-
-  const availableDependencies = useMemo(() => {
-    if (editGoal) {
-      return editGoal.phases.filter((p) => !phases.find((ph) => ph.id === p.id));
-    }
-    return [];
-  }, [editGoal, phases]);
 
   return (
     <Modal
@@ -260,8 +249,8 @@ export function PhaseBuilderModal({
               phase={phase}
               index={index}
               allPhases={phases}
-              availableDependencies={availableDependencies}
               isActive={activePhaseId === phase.id}
+              initiallyEditing={phase.id.startsWith("ph-new-")}
               onActivate={setActivePhaseId}
               onUpdate={updatePhase}
               onRemove={removePhase}
@@ -275,12 +264,6 @@ export function PhaseBuilderModal({
           <div className="flex items-center gap-2 text-[13px] text-muted mb-2">
             <span className="font-medium text-primary">Summary:</span>
             <span>{phases.length} phase{phases.length !== 1 ? "s" : ""}</span>
-            {phases.some((p) => p.dependsOn.length > 0) && (
-              <>
-                <span>·</span>
-                <span className="text-amber-400">Has dependencies</span>
-              </>
-            )}
             {targetDate && (
               <>
                 <span>·</span>
@@ -298,8 +281,8 @@ interface PhaseEditorRowProps {
   phase: { id: string; title: string; description: string; dependsOn: string[] };
   index: number;
   allPhases: Array<{ id: string; title: string; description: string; dependsOn: string[] }>;
-  availableDependencies: Phase[];
   isActive: boolean;
+  initiallyEditing?: boolean;
   onActivate: (id: string | null) => void;
   onUpdate: (id: string, patch: Partial<{ id: string; title: string; description: string; dependsOn: string[] }>) => void;
   onRemove: (id: string) => void;
@@ -312,15 +295,14 @@ function PhaseEditorRow({
   allPhases,
   availableDependencies,
   isActive,
+  initiallyEditing = false,
   onActivate,
   onUpdate,
   onRemove,
   onReorder,
 }: PhaseEditorRowProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [showDepPicker, setShowDepPicker] = useState(false);
-
-  const otherPhases = allPhases.filter((p) => p.id !== phase.id);
+  const [isEditing, setIsEditing] = useState(initiallyEditing);
+  const isNew = phase.id.startsWith("ph-new-");
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("text/plain", phase.id);
@@ -379,88 +361,19 @@ function PhaseEditorRow({
                 placeholder="What happens in this phase?"
                 rows={2}
               />
-              
-              {/* Dependencies */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-[12px] font-medium text-secondary">Dependencies</label>
-                  <button
-                    onClick={() => setShowDepPicker(!showDepPicker)}
-                    className="pressable text-[12px] text-accent hover:underline"
-                  >
-                    {showDepPicker ? "Done" : "Add dependency"}
-                  </button>
+              {isNew && (
+                <div className="flex justify-end">
+                  <Button variant="secondary" size="sm" onClick={() => onRemove(phase.id)}>
+                    Cancel
+                  </Button>
                 </div>
-                
-                {phase.dependsOn.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {phase.dependsOn.map((depId) => {
-                      const dep = allPhases.find((p) => p.id === depId) || availableDependencies.find((p) => p.id === depId);
-                      return dep ? (
-                        <span
-                          key={depId}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-400/10 text-amber-400"
-                        >
-                          {dep.title}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onUpdate(phase.id, { dependsOn: phase.dependsOn.filter((d) => d !== depId) });
-                            }}
-                            className="pressable p-0.5 hover:bg-amber-400/20 rounded"
-                          >
-                            <X size={10} />
-                          </button>
-                        </span>
-                      ) : null;
-                    })}
-                  </div>
-                )}
-
-                {showDepPicker && otherPhases.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {otherPhases.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => {
-                          onUpdate(phase.id, { dependsOn: [...phase.dependsOn, p.id] });
-                          setShowDepPicker(false);
-                        }}
-                        disabled={phase.dependsOn.includes(p.id)}
-                        className="pressable px-2 py-1 rounded-full text-[11px] font-medium border border-border bg-surface-elevated text-secondary hover:bg-accent/10 hover:border-accent/50 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {p.title}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           ) : (
             <div onClick={() => setIsEditing(true)} className="cursor-pointer">
-              <div className="flex items-center gap-2">
-                <h5 className="font-medium text-primary truncate">{phase.title || "Untitled Phase"}</h5>
-                {phase.dependsOn.length > 0 && (
-                  <Flag className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
-                )}
-              </div>
+              <h5 className="font-medium text-primary truncate">{phase.title || "Untitled Phase"}</h5>
               {phase.description && (
                 <p className="mt-1 text-[13px] text-muted line-clamp-2">{phase.description}</p>
-              )}
-              {phase.dependsOn.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {phase.dependsOn.map((depId) => {
-                    const dep = allPhases.find((p) => p.id === depId) || availableDependencies.find((p) => p.id === depId);
-                    return dep ? (
-                      <span
-                        key={depId}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-400/10 text-amber-400"
-                      >
-                        Waits for: {dep.title}
-                      </span>
-                    ) : null;
-                  })}
-                </div>
               )}
             </div>
           )}
@@ -498,4 +411,4 @@ function PhaseEditorRow({
   );
 }
 
-import { X, ChevronUp, ChevronDown, Check } from "lucide-react";
+import { ChevronUp, ChevronDown, Check } from "lucide-react";
