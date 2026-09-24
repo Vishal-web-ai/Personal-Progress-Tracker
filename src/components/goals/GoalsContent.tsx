@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Settings, Target } from "lucide-react";
+import { Plus, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/store/app-store";
 import { GoalCard } from "@/components/goals/GoalCard";
 import { PhaseBuilderModal } from "@/components/goals/PhaseBuilderModal";
+import { PhaseSheet } from "@/components/goals/PhaseSheet";
 import { PhaseTaskManager } from "@/components/goals/PhaseTaskManager";
 import { PhaseRetrospectiveModal } from "@/components/goals/PhaseRetrospectiveModal";
 import { SmartRescheduleModal } from "@/components/goals/SmartRescheduleModal";
-import { Goal, Phase, PhaseRetrospective } from "@/types";
+import { Goal } from "@/types";
 import { Button } from "@/components/ui/Button";
 
 export function GoalsContent() {
@@ -19,11 +20,11 @@ export function GoalsContent() {
     getPhaseRetrospective,
     startPhase,
     completePhase,
-    togglePhaseTask,
     phaseRetrospectives,
   } = useApp();
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [sheetPhase, setSheetPhase] = useState<{ goalId: string; phaseId: string } | null>(null);
   const [taskManagerPhase, setTaskManagerPhase] = useState<{ phaseId: string; goalId: string; goalColor: string } | null>(null);
   const [retrospectivePhase, setRetrospectivePhase] = useState<{ phaseId: string; goalId: string; phaseTitle: string } | null>(null);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
@@ -49,16 +50,6 @@ export function GoalsContent() {
     }
   };
 
-  const handleAddTask = (phaseId: string) => {
-    const goal = goals.find((g) => g.phases.some((p) => p.id === phaseId));
-    const phase = goal?.phases.find((p) => p.id === phaseId);
-    if (goal && phase) {
-      setTaskManagerPhase({ phaseId, goalId: goal.id, goalColor: goal.color || "var(--accent)" });
-    }
-  };
-
-  const handleTaskClick = (phaseId: string, taskId: string) => {};
-  const handleToggleTask = (phaseId: string, taskId: string) => { togglePhaseTask(phaseId, taskId); };
   const handleDeleteGoal = (goalId: string) => { if (window.confirm("Delete this goal and all its phases/tasks? This cannot be undone.")) removeGoal(goalId); };
 
   return (
@@ -79,14 +70,8 @@ export function GoalsContent() {
               <GoalCard
                 key={goal.id}
                 goal={goal}
-                onClick={() => {}}
                 onEdit={() => { setEditingGoal(goal); setShowBuilder(true); }}
-                onDelete={() => handleDeleteGoal(goal.id)}
-                onStartPhase={(phaseId) => handleStartPhase(goal.id, phaseId)}
-                onCompletePhase={(phaseId) => handleCompletePhase(goal.id, phaseId)}
-                onAddTask={handleAddTask}
-                onTaskClick={handleTaskClick}
-                onToggleTask={handleToggleTask}
+                onPhaseOpen={(phaseId) => setSheetPhase({ goalId: goal.id, phaseId })}
               />
             ))}
           </div>
@@ -101,14 +86,8 @@ export function GoalsContent() {
               <GoalCard
                 key={goal.id}
                 goal={goal}
-                onClick={() => {}}
                 onEdit={() => { setEditingGoal(goal); setShowBuilder(true); }}
-                onDelete={() => handleDeleteGoal(goal.id)}
-                onStartPhase={(phaseId) => handleStartPhase(goal.id, phaseId)}
-                onCompletePhase={(phaseId) => handleCompletePhase(goal.id, phaseId)}
-                onAddTask={handleAddTask}
-                onTaskClick={handleTaskClick}
-                onToggleTask={handleToggleTask}
+                onPhaseOpen={(phaseId) => setSheetPhase({ goalId: goal.id, phaseId })}
               />
             ))}
           </div>
@@ -123,14 +102,8 @@ export function GoalsContent() {
               <GoalCard
                 key={goal.id}
                 goal={goal}
-                onClick={() => {}}
                 onEdit={() => { setEditingGoal(goal); setShowBuilder(true); }}
-                onDelete={() => handleDeleteGoal(goal.id)}
-                onStartPhase={(phaseId) => handleStartPhase(goal.id, phaseId)}
-                onCompletePhase={(phaseId) => handleCompletePhase(goal.id, phaseId)}
-                onAddTask={handleAddTask}
-                onTaskClick={handleTaskClick}
-                onToggleTask={handleToggleTask}
+                onPhaseOpen={(phaseId) => setSheetPhase({ goalId: goal.id, phaseId })}
               />
             ))}
           </div>
@@ -155,6 +128,21 @@ export function GoalsContent() {
       )}
 
       <PhaseBuilderModal open={showBuilder} onClose={() => { setShowBuilder(false); setEditingGoal(null); }} editGoal={editingGoal || undefined} />
+      {sheetPhase && (() => {
+        const goal = goals.find((g) => g.id === sheetPhase.goalId);
+        if (!goal) return null;
+        return (
+          <PhaseSheet
+            key={sheetPhase.phaseId}
+            goal={goal}
+            phaseId={sheetPhase.phaseId}
+            onClose={() => setSheetPhase(null)}
+            onStartPhase={() => handleStartPhase(goal.id, sheetPhase.phaseId)}
+            onCompletePhase={() => handleCompletePhase(goal.id, sheetPhase.phaseId)}
+            onManageTasks={() => setTaskManagerPhase({ phaseId: sheetPhase.phaseId, goalId: goal.id, goalColor: goal.color || "var(--accent)" })}
+          />
+        );
+      })()}
       {taskManagerPhase && <PhaseTaskManager phaseId={taskManagerPhase.phaseId} goalId={taskManagerPhase.goalId} goalColor={taskManagerPhase.goalColor} onClose={() => setTaskManagerPhase(null)} />}
       {retrospectivePhase && <PhaseRetrospectiveModal open={true} onClose={() => setRetrospectivePhase(null)} phaseId={retrospectivePhase.phaseId} goalId={retrospectivePhase.goalId} phaseTitle={retrospectivePhase.phaseTitle} existingRetrospective={getPhaseRetrospective(retrospectivePhase.phaseId)} />}
       {rescheduleGoal && <SmartRescheduleModal open={true} onClose={() => setRescheduleGoal(null)} goal={rescheduleGoal} />}

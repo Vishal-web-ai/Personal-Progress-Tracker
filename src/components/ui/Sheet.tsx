@@ -5,17 +5,16 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface ModalProps {
+interface SheetProps {
   open: boolean;
   onClose: () => void;
   title?: string;
-  hideHeader?: boolean;
   children: React.ReactNode;
   className?: string;
   footer?: React.ReactNode;
 }
 
-export function Modal({ open, onClose, title, hideHeader, children, className, footer }: ModalProps) {
+export function Sheet({ open, onClose, title, children, className, footer }: SheetProps) {
   const [closing, setClosing] = useState(false);
 
   const requestClose = useCallback(() => {
@@ -43,32 +42,31 @@ export function Modal({ open, onClose, title, hideHeader, children, className, f
   if (!open && !closing) return null;
 
   return createPortal(
-    <div
-      className={cn(
-        "fixed inset-0 z-40 flex items-end justify-center sm:items-center",
-        closing ? "pointer-events-none" : ""
-      )}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-    >
+    <div className="fixed inset-0 z-30" role="dialog" aria-modal="true" aria-label={title}>
       <div
-        className={cn("modal-backdrop absolute inset-0 bg-black/60", closing && "opacity-0 transition-opacity duration-150")}
+        className={cn(
+          "sheet-backdrop absolute inset-0 bg-black/60",
+          closing && "opacity-0 transition-opacity duration-150"
+        )}
         onClick={requestClose}
       />
       <div
         className={cn(
-          "modal-dialog relative z-10 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[22px] border border-border bg-surface shadow-2xl sm:max-w-md sm:rounded-[22px]",
-          closing && "opacity-0 scale-[0.98] translate-y-1 transition-all duration-150",
+          "sheet-panel absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[22px] border border-border bg-surface shadow-2xl",
+          "sm:inset-y-0 sm:right-0 sm:left-auto sm:h-full sm:max-h-none sm:w-full sm:max-w-[400px] sm:rounded-none",
+          closing && "translate-y-full transition-transform duration-200 sm:translate-x-full",
           className
         )}
       >
-        {!hideHeader && (
-          <div className="flex items-center justify-between border-b border-border-soft px-5 py-4">
+        <div className="flex shrink-0 justify-center pt-2 sm:hidden">
+          <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
+        </div>
+        {title && (
+          <div className="flex shrink-0 items-center justify-between border-b border-border-soft px-5 py-4 sm:pt-1">
             <h2 className="text-[17px] font-semibold text-primary">{title}</h2>
             <button
               onClick={requestClose}
-              aria-label="Close dialog"
+              aria-label="Close panel"
               className="pressable -mr-1 flex h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-surface-elevated hover:text-primary"
             >
               <X size={18} />
@@ -77,7 +75,7 @@ export function Modal({ open, onClose, title, hideHeader, children, className, f
         )}
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
         {footer && (
-          <div className="border-t border-border-soft px-5 py-4">{footer}</div>
+          <div className="shrink-0 border-t border-border-soft px-5 py-4">{footer}</div>
         )}
       </div>
     </div>,
