@@ -124,19 +124,19 @@ export function PhaseProgressBar({ phase, goalColor, onClick, isActive }: PhaseP
 
       {phase.status === "active" && (
         <div className="w-full mt-2 flex items-center justify-center gap-2">
-          <button className="pressable flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/10 text-accent text-[12px] font-medium hover:bg-accent/20">
+          <div className="pressable flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/10 text-accent text-[12px] font-medium hover:bg-accent/20">
             <Pause size={12} />
             Active
-          </button>
+          </div>
         </div>
       )}
 
       {phase.status === "pending" && !isBlocked && (
         <div className="w-full mt-2">
-          <button className="pressable w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-accent text-[#061B14] text-[13px] font-semibold hover:bg-accent-soft">
+          <div className="pressable w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-accent text-[#061B14] text-[13px] font-semibold hover:bg-accent-soft">
             <Play size={14} />
             Start Phase
-          </button>
+          </div>
         </div>
       )}
 
