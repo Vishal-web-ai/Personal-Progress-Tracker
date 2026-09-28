@@ -15,12 +15,14 @@ import {
   BookOpen,
   Users,
   Award,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Form";
 import { DateField } from "@/components/ui/DateField";
+import { TaskIcon, ICON_OPTIONS } from "@/components/ui/TaskIcon";
 import { useApp } from "@/store/app-store";
 import { useToast } from "@/store/toast-store";
 import type { Goal, PhaseTaskStatus } from "@/types";
@@ -36,7 +38,9 @@ const GOAL_COLORS = [
   { value: "var(--note-violet-swatch)", name: "Violet", icon: Award },
 ];
 
-const STEPS = ["Goal", "Phases", "Tasks", "Review"] as const;
+const STEPS = ["Goal", "Phases", "Review"] as const;
+
+const DEFAULT_GOAL_ICON = "target";
 
 type DraftTask = {
   id: string;
@@ -49,6 +53,7 @@ type DraftPhase = {
   id: string;
   title: string;
   description: string;
+  color?: string;
   startDate?: number;
   endDate?: number;
   tasks: DraftTask[];
@@ -117,6 +122,7 @@ export function PhaseBuilderModal({
   const [description, setDescription] = useState("");
   const [targetDate, setTargetDate] = useState<number | undefined>(undefined);
   const [color, setColor] = useState(GOAL_COLORS[0].value);
+  const [icon, setIcon] = useState(DEFAULT_GOAL_ICON);
   const [phases, setPhases] = useState<DraftPhase[]>([]);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, string>>({});
 
@@ -127,6 +133,7 @@ export function PhaseBuilderModal({
       setDescription(editGoal.description || "");
       setTargetDate(editGoal.targetDate ?? undefined);
       setColor(editGoal.color || GOAL_COLORS[0].value);
+      setIcon(editGoal.icon || DEFAULT_GOAL_ICON);
       setPhases(
         editGoal.phases.map((p) => ({
           id: p.id,
@@ -142,6 +149,7 @@ export function PhaseBuilderModal({
       setDescription("");
       setTargetDate(undefined);
       setColor(GOAL_COLORS[0].value);
+      setIcon(DEFAULT_GOAL_ICON);
       setPhases([]);
     }
     setTaskDrafts({});
@@ -171,13 +179,15 @@ export function PhaseBuilderModal({
     });
   }, []);
 
-  const addTask = useCallback(
+  const addDraftTask = useCallback(
     (phaseId: string) => {
-      const text = (taskDrafts[phaseId] ?? "").trim();
-      if (!text) return;
+      const title = (taskDrafts[phaseId] ?? "").trim();
+      if (!title) return;
       setPhases((prev) =>
         prev.map((p) =>
-          p.id === phaseId ? { ...p, tasks: [...p.tasks, { id: uid("pt"), title: text, status: "todo", isNew: true }] } : p
+          p.id === phaseId
+            ? { ...p, tasks: [...p.tasks, { id: uid("pt"), title, status: "todo", isNew: true }] }
+            : p
         )
       );
       setTaskDrafts((prev) => ({ ...prev, [phaseId]: "" }));
@@ -185,11 +195,13 @@ export function PhaseBuilderModal({
     [taskDrafts]
   );
 
-  const removeTask = useCallback((phaseId: string, taskId: string) => {
-    setPhases((prev) => prev.map((p) => (p.id === phaseId ? { ...p, tasks: p.tasks.filter((t) => t.id !== taskId) } : p)));
+  const removeDraftTask = useCallback((phaseId: string, taskId: string) => {
+    setPhases((prev) =>
+      prev.map((p) => (p.id === phaseId ? { ...p, tasks: p.tasks.filter((t) => t.id !== taskId) } : p))
+    );
   }, []);
 
-  const toggleTask = useCallback((phaseId: string, taskId: string) => {
+  const toggleDraftTask = useCallback((phaseId: string, taskId: string) => {
     setPhases((prev) =>
       prev.map((p) =>
         p.id === phaseId
@@ -217,6 +229,7 @@ export function PhaseBuilderModal({
         description: description.trim() || undefined,
         targetDate: targetDate ?? undefined,
         color,
+        icon,
         status: "active",
       });
       phases.forEach((phase, index) => {
@@ -226,6 +239,7 @@ export function PhaseBuilderModal({
             title: phase.title.trim(),
             description: phase.description.trim() || undefined,
             order: index,
+            color: phase.color,
             startDate: phase.startDate,
             endDate: phase.endDate,
           });
@@ -249,6 +263,7 @@ export function PhaseBuilderModal({
             description: phase.description.trim() || undefined,
             order: index,
             status: "pending",
+            color: phase.color,
             startDate: phase.startDate,
             endDate: phase.endDate,
           });
@@ -267,6 +282,7 @@ export function PhaseBuilderModal({
         description: description.trim() || undefined,
         targetDate: targetDate ?? undefined,
         color,
+        icon,
         status: "active",
       });
       phases.forEach((phase, index) => {
@@ -276,6 +292,7 @@ export function PhaseBuilderModal({
             description: phase.description.trim() || undefined,
             order: index,
             status: "pending",
+            color: phase.color,
             startDate: phase.startDate,
             endDate: phase.endDate,
           });
@@ -344,7 +361,6 @@ export function PhaseBuilderModal({
     <section className="space-y-5">
       <div className="space-y-1">
         <h3 className="text-[17px] font-bold tracking-tight text-primary">Define the goal</h3>
-        <p className="text-[13px] text-muted">Start broad — you'll break it into phases next.</p>
       </div>
 
       <Field label="Goal title">
@@ -356,7 +372,7 @@ export function PhaseBuilderModal({
         />
       </Field>
 
-      <Field label="Description" hint="Optional — what success looks like.">
+      <Field label="Description">
         <Textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -366,7 +382,7 @@ export function PhaseBuilderModal({
       </Field>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <Field label="Target date" hint="Optional.">
+        <Field label="Target date">
           <DateField value={targetDate} onChange={setTargetDate} min={TODAY_TS} />
         </Field>
         <div>
@@ -391,6 +407,32 @@ export function PhaseBuilderModal({
             ))}
           </div>
         </div>
+        <div>
+          <span className="mb-1.5 block text-[13px] font-medium text-secondary">Icon</span>
+          <div className="grid grid-cols-6 gap-2 sm:grid-cols-9">
+            {ICON_OPTIONS.map((o) => {
+              const selected = icon === o.value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => setIcon(o.value)}
+                  aria-pressed={selected}
+                  aria-label={o.label}
+                  title={o.label}
+                  className={cn(
+                    "pressable flex h-10 items-center justify-center rounded-[12px] border transition-colors",
+                    selected
+                      ? "border-accent/60 bg-accent/10 text-accent"
+                      : "border-border bg-surface-elevated text-secondary hover:border-accent/40 hover:bg-surface-soft"
+                  )}
+                >
+                  <TaskIcon name={o.value} size={18} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -399,7 +441,6 @@ export function PhaseBuilderModal({
     <section className="space-y-4">
       <div className="space-y-1">
         <h3 className="text-[17px] font-bold tracking-tight text-primary">Plan the phases</h3>
-        <p className="text-[13px] text-muted">Ordered steps toward the goal. Dates and details are optional.</p>
       </div>
 
       {phases.length === 0 && (
@@ -460,6 +501,38 @@ export function PhaseBuilderModal({
             </Field>
           </div>
 
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] text-secondary">Color</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {GOAL_COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => updateDraftPhase(phase.id, { color: phase.color === c.value ? undefined : c.value })}
+                  aria-label={c.name}
+                  aria-pressed={phase.color === c.value}
+                  title={c.name}
+                  className={cn(
+                    "pressable flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors",
+                    phase.color === c.value ? "border-accent ring-2 ring-accent/25" : "border-border hover:border-accent/40"
+                  )}
+                  style={{ backgroundColor: c.value }}
+                >
+                  {phase.color === c.value && <Check size={11} strokeWidth={3} className="text-[#061B14]" />}
+                </button>
+              ))}
+            </div>
+            {phase.color && (
+              <button
+                type="button"
+                onClick={() => updateDraftPhase(phase.id, { color: undefined })}
+                className="pressable ml-auto text-[12px] text-muted transition-colors hover:text-primary"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+
           <Textarea
             value={phase.description}
             onChange={(e) => updateDraftPhase(phase.id, { description: e.target.value })}
@@ -467,9 +540,76 @@ export function PhaseBuilderModal({
             rows={2}
           />
 
-          <p className="text-right text-[12px] text-muted tabular-nums">
-            {phase.tasks.length} task{phase.tasks.length === 1 ? "" : "s"} planned
-          </p>
+          <div className="space-y-2 border-t border-border-soft pt-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-semibold text-secondary">Tasks</span>
+              <span className="text-[12px] tabular-nums text-muted">
+                {phase.tasks.length} planned
+              </span>
+            </div>
+
+            {phase.tasks.length > 0 && (
+              <ul className="space-y-0.5">
+                {phase.tasks.map((t) => (
+                  <li key={t.id} className="flex items-center gap-2 rounded-[10px] py-1 pl-1 pr-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleDraftTask(phase.id, t.id)}
+                      aria-label={t.status === "done" ? `Mark "${t.title}" not planned` : `Mark "${t.title}" done`}
+                      aria-pressed={t.status === "done"}
+                      className={cn(
+                        "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
+                        t.status === "done" ? "border-accent bg-accent text-[#061B14]" : "border-border"
+                      )}
+                    >
+                      {t.status === "done" && <Check size={11} strokeWidth={3} />}
+                    </button>
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate text-[13px]",
+                        t.status === "done" ? "text-muted line-through" : "text-primary"
+                      )}
+                    >
+                      {t.title}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeDraftTask(phase.id, t.id)}
+                      aria-label={`Remove ${t.title}`}
+                      className="pressable flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-high/10 hover:text-high focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                    >
+                      <X size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Input
+                value={taskDrafts[phase.id] ?? ""}
+                onChange={(e) =>
+                  setTaskDrafts((prev) => ({ ...prev, [phase.id]: e.target.value }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addDraftTask(phase.id);
+                  }
+                }}
+                placeholder="Add a task"
+                aria-label={`New task for ${phase.title || `phase ${index + 1}`}`}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => addDraftTask(phase.id)}
+                disabled={!(taskDrafts[phase.id] ?? "").trim()}
+              >
+                <Plus size={14} /> Add
+              </Button>
+            </div>
+          </div>
         </div>
       ))}
 
@@ -485,103 +625,6 @@ export function PhaseBuilderModal({
     </section>
   );
 
-  const tasksStep = (
-    <section className="space-y-4">
-      <div className="space-y-1">
-        <h3 className="text-[17px] font-bold tracking-tight text-primary">Add tasks</h3>
-        <p className="text-[13px] text-muted">The concrete actions that make each phase happen.</p>
-      </div>
-
-      {phases.length === 0 && (
-        <div className="rounded-[16px] border border-dashed border-border bg-surface-elevated/30 px-5 py-10 text-center">
-          <p className="mb-5 text-[13px] text-muted">Add a phase first, then give it tasks.</p>
-          <Button variant="secondary" size="md" onClick={navBack}>
-            Back to phases
-          </Button>
-        </div>
-      )}
-
-      {phases.map((phase) => {
-        const done = phase.tasks.filter((t) => t.status === "done").length;
-        return (
-          <div key={phase.id} className="rounded-[16px] border border-border-soft bg-surface-elevated/25 p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h4 className="min-w-0 truncate text-[14px] font-semibold text-primary">
-                {phase.title.trim() || "Untitled phase"}
-              </h4>
-              <span className="shrink-0 text-[12px] text-muted tabular-nums">
-                {done}/{phase.tasks.length} done
-              </span>
-            </div>
-
-            <ul className="space-y-2">
-              {phase.tasks.map((task) => (
-                <li key={task.id} className="flex items-center gap-2.5">
-                  {task.isNew ? (
-                    <span className="h-[18px] w-[18px] shrink-0 rounded-[6px] border-2 border-border" aria-hidden />
-                  ) : (
-                    <button
-                      type="button"
-                      aria-label={task.status === "done" ? "Mark incomplete" : "Mark done"}
-                      onClick={() => toggleTask(phase.id, task.id)}
-                      className={cn(
-                        "pressable flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[6px] border-2 transition-colors",
-                        task.status === "done"
-                          ? "border-accent bg-accent"
-                          : "border-border hover:border-accent/60"
-                      )}
-                    >
-                      {task.status === "done" && <Check size={11} strokeWidth={3} className="text-[#061B14]" />}
-                    </button>
-                  )}
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 truncate text-[14px]",
-                      task.status === "done" ? "text-muted line-through" : "text-primary"
-                    )}
-                  >
-                    {task.title}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Remove task"
-                    onClick={() => removeTask(phase.id, task.id)}
-                    className="pressable flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-high/15 hover:text-high"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </li>
-              ))}
-              {phase.tasks.length === 0 && (
-                <li className="rounded-[10px] border border-dashed border-border px-3 py-2.5 text-[12px] text-muted">
-                  No tasks yet — add one below.
-                </li>
-              )}
-            </ul>
-
-            <form
-              className="mt-3 flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                addTask(phase.id);
-              }}
-            >
-              <Input
-                value={taskDrafts[phase.id] ?? ""}
-                onChange={(e) => setTaskDrafts((prev) => ({ ...prev, [phase.id]: e.target.value }))}
-                placeholder={`Add a task to "${phase.title.trim() || "this phase"}"…`}
-                className="flex-1"
-              />
-              <Button type="submit" size="sm" disabled={!(taskDrafts[phase.id] ?? "").trim()}>
-                <Plus size={14} /> Add
-              </Button>
-            </form>
-          </div>
-        );
-      })}
-    </section>
-  );
-
   const reviewStep = (() => {
     const namedPhases = phases.filter((p) => p.title.trim().length > 0);
     const totalNamedTasks = namedPhases.reduce((n, p) => n + p.tasks.filter((t) => t.title.trim().length > 0).length, 0);
@@ -589,12 +632,19 @@ export function PhaseBuilderModal({
       <section className="space-y-4">
         <div className="space-y-1">
           <h3 className="text-[17px] font-bold tracking-tight text-primary">Review your plan</h3>
-          <p className="text-[13px] text-muted">Everything below is saved when you confirm.</p>
         </div>
 
         <div className="rounded-[16px] border border-border bg-surface p-4">
           <div className="flex items-center gap-3">
-            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${color} 16%, var(--surface))`,
+                color,
+              }}
+            >
+              <TaskIcon name={icon} size={16} />
+            </span>
             <h4 className="min-w-0 truncate text-[15px] font-semibold text-primary">{title.trim()}</h4>
           </div>
           {description.trim() && <p className="mt-2 text-[13px] text-muted line-clamp-2">{description.trim()}</p>}
@@ -618,24 +668,51 @@ export function PhaseBuilderModal({
         {namedPhases.length > 0 && (
           <ul className="space-y-2">
             {namedPhases.map((phase, i) => {
-              const n = phase.tasks.filter((t) => t.title.trim().length > 0).length;
-              const d = phase.tasks.filter((t) => t.title.trim().length > 0 && t.status === "done").length;
+              const namedTasks = phase.tasks.filter((t) => t.title.trim().length > 0);
+              const n = namedTasks.length;
+              const d = namedTasks.filter((t) => t.status === "done").length;
               const dates = fmtDateLabel(phase);
               return (
                 <li
                   key={phase.id}
-                  className="flex items-center gap-3 rounded-[14px] border border-border-soft bg-surface-elevated/25 px-4 py-3"
+                  className="rounded-[14px] border border-border-soft bg-surface-elevated/25 px-4 py-3"
                 >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-elevated text-[12px] font-semibold tabular-nums text-secondary">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium text-primary">{phase.title.trim()}</p>
-                    {dates && <p className="text-[12px] text-muted">{dates}</p>}
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-elevated text-[12px] font-semibold tabular-nums text-secondary">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-medium text-primary">{phase.title.trim()}</p>
+                      {dates && <p className="text-[12px] text-muted">{dates}</p>}
+                    </div>
+                    {n > 0 && (
+                      <span className="shrink-0 text-[12px] text-muted tabular-nums">
+                        {d}/{n} tasks
+                      </span>
+                    )}
                   </div>
-                  <span className="shrink-0 text-[12px] text-muted tabular-nums">
-                    {d}/{n} tasks
-                  </span>
+
+                  {n > 0 && (
+                    <ul className="mt-2 space-y-0.5 border-t border-border-soft pl-9 pt-2">
+                      {namedTasks.map((t) => (
+                        <li key={t.id} className="flex items-center gap-2 text-[12px]">
+                          {t.status === "done" ? (
+                            <Check size={12} className="flex-shrink-0 text-accent" />
+                          ) : (
+                            <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-border" aria-hidden />
+                          )}
+                          <span
+                            className={cn(
+                              "min-w-0 flex-1 truncate",
+                              t.status === "done" ? "text-muted line-through" : "text-secondary"
+                            )}
+                          >
+                            {t.title}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               );
             })}
@@ -685,8 +762,7 @@ export function PhaseBuilderModal({
         <div key={step} className="motion-page" aria-live="polite">
           {step === 1 && goalStep}
           {step === 2 && phasesStep}
-          {step === 3 && tasksStep}
-          {step === 4 && reviewStep}
+          {step === 3 && reviewStep}
         </div>
       </div>
     </Modal>

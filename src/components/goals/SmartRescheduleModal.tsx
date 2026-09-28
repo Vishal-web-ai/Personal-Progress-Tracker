@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Calendar, Clock, AlertTriangle, ArrowLeftRight, ChevronLeft, ChevronRight, Save, X, CalendarDays, ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toMinutes } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Form";
@@ -33,7 +33,7 @@ export function SmartRescheduleModal({ open, onClose, goal }: SmartRescheduleMod
       currentDate.setHours(0, 0, 0, 0);
 
       goal.phases.forEach((phase, index) => {
-        const duration = Math.max(1, Math.ceil((phase.estimatedMinutes || 60) / 480)); // 8h work days
+        const duration = Math.max(1, Math.ceil(toMinutes(phase.estimatedMinutes) / 480)); // 8h work days
         const start = new Date(currentDate);
         const end = new Date(currentDate);
         end.setDate(end.getDate() + duration - 1);
@@ -102,7 +102,7 @@ export function SmartRescheduleModal({ open, onClose, goal }: SmartRescheduleMod
     const newDates: Record<string, { start: string; end: string }> = {};
     
     goal.phases.forEach((phase) => {
-      const duration = Math.max(1, Math.ceil((phase.estimatedMinutes || 60) / 480));
+      const duration = Math.max(1, Math.ceil(toMinutes(phase.estimatedMinutes) / 480));
       const start = new Date(currentDate);
       const end = new Date(currentDate);
       end.setDate(end.getDate() + duration - 1);
@@ -267,7 +267,7 @@ export function SmartRescheduleModal({ open, onClose, goal }: SmartRescheduleMod
                   <div className="flex-1 min-w-0">
                     <h4 className="text-[14px] font-medium text-primary truncate">{phase.title}</h4>
                     <p className="text-[12px] text-muted">
-                      {phase.estimatedMinutes ? `${Math.round(phase.estimatedMinutes / 60)}h estimated` : "No time estimate"}
+                      {toMinutes(phase.estimatedMinutes) > 0 ? `${Math.round(toMinutes(phase.estimatedMinutes) / 60)}h estimated` : "No time estimate"}
                     </p>
                   </div>
                 </div>

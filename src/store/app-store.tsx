@@ -12,6 +12,7 @@ import React, {
 import type { Area, Goal, GoalProgressPoint, Note, Phase, PhaseRetrospective, PhaseTask, Task, TaskBucket, WorkSession } from "@/types";
 import { AREAS } from "@/data/initial";
 import { dayKey, dayKeyFor, monthKey, weekRange } from "@/lib/time";
+import { toMinutes } from "@/lib/utils";
 import { readSavedAt, readSnapshot, writeSnapshot } from "@/lib/db";
 
 interface AppSettings {
@@ -178,12 +179,28 @@ function rolloverTasks(tasks: Task[], today: string = dayKey(new Date())): Task[
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+function migrateGoal(raw: Goal): Goal {
+  return {
+    ...raw,
+    phases: (raw.phases ?? []).map((p) => ({
+      ...p,
+      estimatedMinutes: toMinutes(p.estimatedMinutes),
+      actualMinutes: toMinutes(p.actualMinutes),
+      tasks: (p.tasks ?? []).map((t) => ({
+        ...t,
+        estimatedMinutes: toMinutes(t.estimatedMinutes),
+        actualMinutes: toMinutes(t.actualMinutes),
+      })),
+    })),
+  };
+}
+
 function decodeState(raw: string): AppState {
   const parsed = JSON.parse(raw) as AppState;
   return {
     tasks: (parsed.tasks ?? []).map((t) => migrateTask(t as unknown as Record<string, unknown>)),
     sessions: parsed.sessions ?? [],
-    goals: parsed.goals ?? [],
+    goals: (parsed.goals ?? []).map(migrateGoal),
     phaseRetrospectives: parsed.phaseRetrospectives ?? [],
     settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}) },
   };
@@ -249,7 +266,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 stripDemoTasks(db.tasks).map((t) => migrateTask(t as unknown as Record<string, unknown>))
               ),
               sessions: stripDemoSessions(db.sessions ?? []),
-              goals: db.goals ?? [],
+              goals: (db.goals ?? []).map(migrateGoal),
               phaseRetrospectives: db.phaseRetrospectives ?? [],
               settings: { ...DEFAULT_SETTINGS, ...(db.settings ?? {}) },
             });
@@ -576,6 +593,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return Math.round((completedTasks / totalTasks) * 100);
   }, []);
 
+  const withProgress = useCallback(
+    (g: Goal, phases: Phase[]): Goal => ({ ...g, phases, progress: computeGoalProgress({ ...g, phases }) }),
+    [computeGoalProgress]
+  );
+
   const addGoal: AppContextValue["addGoal"] = useCallback((goalData) => {
     const id = `g-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const goal: Goal = {
@@ -730,7 +752,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     ? {
                         ...p,
                         tasks: [...p.tasks, task],
-                        estimatedMinutes: (p.estimatedMinutes ?? 0) + (task.estimatedMinutes ?? 0),
+                        estimatedMinutes: toMinutes(p.estimatedMinutes) + toMinutes(task.estimatedMinutes),
                       }
                     : p
                 ),
@@ -752,45 +774,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!s) return s;
       return {
         ...s,
-        goals: s.goals.map((g) => ({
-          ...g,
-          phases: g.phases.map((p) =>
-            p.id === phaseId
-              ? {
-                  ...p,
-                  tasks: p.tasks.map((t) =>
-                    t.id === taskId ? { ...t, ...patch } : t
-                  ),
-                }
-              : p
-          ),
-        })),
+        goals: s.goals.map((g) =>
+          withProgress(
+            g,
+            g.phases.map((p) =>
+              p.id === phaseId
+                ? {
+                    ...p,
+                    tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, ...patch } : t)),
+                  }
+                : p
+            )
+          )
+        ),
       };
     });
-  }, []);
+  }, [withProgress]);
 
   const removePhaseTask: AppContextValue["removePhaseTask"] = useCallback((phaseId, taskId) => {
     setState((s) => {
       if (!s) return s;
       return {
         ...s,
-        goals: s.goals.map((g) => ({
-          ...g,
-          phases: g.phases.map((p) =>
-            p.id === phaseId
-              ? {
-                  ...p,
-                  tasks: p.tasks.filter((t) => t.id !== taskId),
-                  estimatedMinutes: p.tasks
-                    .filter((t) => t.id !== taskId)
-                    .reduce((sum, t) => sum + (t.estimatedMinutes ?? 0), 0),
-                }
-              : p
-          ),
-        })),
+        goals: s.goals.map((g) =>
+          withProgress(
+            g,
+            g.phases.map((p) => {
+              if (p.id !== phaseId) return p;
+              const kept = p.tasks.filter((t) => t.id !== taskId);
+              return {
+                ...p,
+                tasks: kept,
+                estimatedMinutes: kept.reduce((sum, t) => sum + toMinutes(t.estimatedMinutes), 0),
+              };
+            })
+          )
+        ),
       };
     });
-  }, []);
+  }, [withProgress]);
 
   const reorderPhaseTasks: AppContextValue["reorderPhaseTasks"] = useCallback((phaseId, taskIds) => {
     setState((s) => {
@@ -822,28 +844,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!s) return s;
       return {
         ...s,
-        goals: s.goals.map((g) => ({
-          ...g,
-          phases: g.phases.map((p) =>
-            p.id === phaseId
-              ? {
-                  ...p,
-                  tasks: p.tasks.map((t) =>
-                    t.id === taskId
-                      ? {
-                          ...t,
-                          status: t.status === "done" ? "todo" : "done",
-                          completedAt: t.status === "done" ? undefined : Date.now(),
-                        }
-                      : t
-                  ),
-                }
-              : p
-          ),
-        })),
+        goals: s.goals.map((g) =>
+          withProgress(
+            g,
+            g.phases.map((p) =>
+              p.id === phaseId
+                ? {
+                    ...p,
+                    tasks: p.tasks.map((t) =>
+                      t.id === taskId
+                        ? {
+                            ...t,
+                            status: t.status === "done" ? "todo" : "done",
+                            completedAt: t.status === "done" ? undefined : Date.now(),
+                          }
+                        : t
+                    ),
+                  }
+                : p
+            )
+          )
+        ),
       };
     });
-  }, []);
+  }, [withProgress]);
 
   const startPhase: AppContextValue["startPhase"] = useCallback((goalId, phaseId) => {
     setState((s) => {

@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Line, ReferenceLine } from "recharts";
-import { cn } from "@/lib/utils";
+import { cn, toMinutes } from "@/lib/utils";
 import { Goal, Phase } from "@/types";
 
 interface PhaseProgressChartProps {
@@ -24,8 +24,8 @@ export function PhaseProgressChart({ goal, className }: PhaseProgressChartProps)
         total,
         done,
         status: phase.status,
-        estimatedHours: Math.round((phase.estimatedMinutes || 0) / 60),
-        actualHours: Math.round((phase.actualMinutes || 0) / 60),
+        estimatedHours: Math.round(toMinutes(phase.estimatedMinutes) / 60),
+        actualHours: Math.round(toMinutes(phase.actualMinutes) / 60),
         color: phase.status === "completed" ? "var(--color-low)" : 
                phase.status === "active" ? "var(--accent)" : "var(--text-muted)",
       };
@@ -121,8 +121,8 @@ export function PhaseVelocityChart({ goal, className }: PhaseVelocityChartProps)
   const data = useMemo(() => {
     const completedPhases = goal.phases.filter((p) => p.status === "completed");
     return completedPhases.map((phase, index) => {
-      const est = phase.estimatedMinutes || 0;
-      const act = phase.actualMinutes || 0;
+      const est = toMinutes(phase.estimatedMinutes);
+      const act = toMinutes(phase.actualMinutes);
       const variance = est > 0 ? Math.round(((act - est) / est) * 100) : 0;
       return {
         phase: `P${goal.phases.findIndex((p) => p.id === phase.id) + 1}`,
@@ -299,16 +299,16 @@ export function PhaseTimeline({ goal, className }: PhaseTimelineProps) {
                     )}
                     <div className="mt-2 flex items-center gap-3 text-[11px] text-muted">
                       <span>{done}/{total} tasks ({pct}%)</span>
-                      {phase.estimatedMinutes && (
+                      {toMinutes(phase.estimatedMinutes) > 0 && (
                         <span className="flex items-center gap-1">
                           <Clock size={11} />
-                          {Math.round(phase.estimatedMinutes / 60)}h est.
+                          {Math.round(toMinutes(phase.estimatedMinutes) / 60)}h est.
                         </span>
                       )}
-                      {phase.actualMinutes && phase.actualMinutes > 0 && (
+                      {toMinutes(phase.actualMinutes) > 0 && (
                         <span className="flex items-center gap-1 text-accent">
                           <TrendingUp size={11} />
-                          {Math.round(phase.actualMinutes / 60)}h actual
+                          {Math.round(toMinutes(phase.actualMinutes) / 60)}h actual
                         </span>
                       )}
                       {phase.targetDate && (

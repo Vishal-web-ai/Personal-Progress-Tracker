@@ -80,6 +80,7 @@ export interface Goal {
   phases: Phase[];
   progress: number; // 0-100, computed from phases
   color?: string; // swatch color for UI
+  icon?: string; // key from ICON_OPTIONS (TaskIcon.tsx)
 }
 
 export interface Phase {
@@ -96,6 +97,7 @@ export interface Phase {
   targetDate?: number; // optional target date for phase
   startDate?: number; // planned start date (planning only)
   endDate?: number; // planned end date (planning only)
+  color?: string; // phase accent color (falls back to goal color)
   estimatedMinutes?: number; // sum of task estimates
   actualMinutes?: number; // sum of actual session time
 }

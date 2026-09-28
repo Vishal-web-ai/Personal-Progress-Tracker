@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import { useApp } from "@/store/app-store";
 import { GoalCard } from "@/components/goals/GoalCard";
 import { PhaseBuilderModal } from "@/components/goals/PhaseBuilderModal";
-import { PhaseSheet } from "@/components/goals/PhaseSheet";
 import { PhaseTaskManager } from "@/components/goals/PhaseTaskManager";
 import { PhaseRetrospectiveModal } from "@/components/goals/PhaseRetrospectiveModal";
 import { SmartRescheduleModal } from "@/components/goals/SmartRescheduleModal";
@@ -24,14 +23,11 @@ export function GoalsContent() {
   } = useApp();
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-  const [sheetPhase, setSheetPhase] = useState<{ goalId: string; phaseId: string } | null>(null);
   const [taskManagerPhase, setTaskManagerPhase] = useState<{ phaseId: string; goalId: string; goalColor: string } | null>(null);
   const [retrospectivePhase, setRetrospectivePhase] = useState<{ phaseId: string; goalId: string; phaseTitle: string } | null>(null);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
 
-  const activeGoals = goals.filter((g) => g.status === "active");
-  const completedGoals = goals.filter((g) => g.status === "completed");
-  const archivedGoals = goals.filter((g) => g.status === "archived");
+  const orderedGoals = [...goals].sort((a, b) => a.createdAt - b.createdAt);
 
   const handleStartPhase = (goalId: string, phaseId: string) => {
     startPhase(goalId, phaseId);
@@ -54,63 +50,31 @@ export function GoalsContent() {
 
   return (
     <div className="space-y-8">
-      <header className="motion-stagger space-y-1">
+      <header className="motion-stagger flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-[24px] font-bold tracking-tight text-primary">Goals</h1>
-        <p className="text-[14px] text-secondary">Break big goals into phases. Track progress, time, and learn from each phase.</p>
-        <Button variant="primary" className="mt-4" onClick={() => { setEditingGoal(null); setShowBuilder(true); }}>
+        <Button variant="primary" onClick={() => { setEditingGoal(null); setShowBuilder(true); }}>
           <Plus size={16} className="mr-2" /> New Goal
         </Button>
       </header>
 
-      {activeGoals.length > 0 && (
-        <section className="motion-stagger space-y-4" aria-labelledby="active-goals">
-          <h2 id="active-goals" className="text-[17px] font-semibold text-primary">Active Goals</h2>
-          <div className="space-y-4">
-            {activeGoals.map((goal) => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                onEdit={() => { setEditingGoal(goal); setShowBuilder(true); }}
-                onPhaseOpen={(phaseId) => setSheetPhase({ goalId: goal.id, phaseId })}
-              />
-            ))}
-          </div>
+      {orderedGoals.length > 0 && (
+        <section className="motion-stagger space-y-4" aria-label="Goals">
+          {orderedGoals.map((goal) => (
+            <GoalCard
+              key={goal.id}
+              goal={goal}
+              onEdit={() => { setEditingGoal(goal); setShowBuilder(true); }}
+              onManageTasks={(phaseId) =>
+                setTaskManagerPhase({ phaseId, goalId: goal.id, goalColor: goal.color || "var(--accent)" })
+              }
+              onStartPhase={(phaseId) => handleStartPhase(goal.id, phaseId)}
+              onCompletePhase={(phaseId) => handleCompletePhase(goal.id, phaseId)}
+            />
+          ))}
         </section>
       )}
 
-      {completedGoals.length > 0 && (
-        <section className="motion-stagger space-y-4" aria-labelledby="completed-goals">
-          <h2 id="completed-goals" className="text-[17px] font-semibold text-primary">Completed Goals</h2>
-          <div className="space-y-4">
-            {completedGoals.map((goal) => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                onEdit={() => { setEditingGoal(goal); setShowBuilder(true); }}
-                onPhaseOpen={(phaseId) => setSheetPhase({ goalId: goal.id, phaseId })}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {archivedGoals.length > 0 && (
-        <section className="motion-stagger space-y-4" aria-labelledby="archived-goals">
-          <h2 id="archived-goals" className="text-[17px] font-semibold text-primary">Archived Goals</h2>
-          <div className="space-y-4">
-            {archivedGoals.map((goal) => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                onEdit={() => { setEditingGoal(goal); setShowBuilder(true); }}
-                onPhaseOpen={(phaseId) => setSheetPhase({ goalId: goal.id, phaseId })}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {goals.length === 0 && (
+      {orderedGoals.length === 0 && (
         <section className="motion-stagger" aria-labelledby="empty-goals">
           <div className="text-center py-16 rounded-[22px] border border-dashed border-border bg-surface-elevated/50">
             <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-surface flex items-center justify-center">
@@ -128,21 +92,6 @@ export function GoalsContent() {
       )}
 
       <PhaseBuilderModal open={showBuilder} onClose={() => { setShowBuilder(false); setEditingGoal(null); }} editGoal={editingGoal || undefined} />
-      {sheetPhase && (() => {
-        const goal = goals.find((g) => g.id === sheetPhase.goalId);
-        if (!goal) return null;
-        return (
-          <PhaseSheet
-            key={sheetPhase.phaseId}
-            goal={goal}
-            phaseId={sheetPhase.phaseId}
-            onClose={() => setSheetPhase(null)}
-            onStartPhase={() => handleStartPhase(goal.id, sheetPhase.phaseId)}
-            onCompletePhase={() => handleCompletePhase(goal.id, sheetPhase.phaseId)}
-            onManageTasks={() => setTaskManagerPhase({ phaseId: sheetPhase.phaseId, goalId: goal.id, goalColor: goal.color || "var(--accent)" })}
-          />
-        );
-      })()}
       {taskManagerPhase && <PhaseTaskManager phaseId={taskManagerPhase.phaseId} goalId={taskManagerPhase.goalId} goalColor={taskManagerPhase.goalColor} onClose={() => setTaskManagerPhase(null)} />}
       {retrospectivePhase && <PhaseRetrospectiveModal open={true} onClose={() => setRetrospectivePhase(null)} phaseId={retrospectivePhase.phaseId} goalId={retrospectivePhase.goalId} phaseTitle={retrospectivePhase.phaseTitle} existingRetrospective={getPhaseRetrospective(retrospectivePhase.phaseId)} />}
       {rescheduleGoal && <SmartRescheduleModal open={true} onClose={() => setRescheduleGoal(null)} goal={rescheduleGoal} />}

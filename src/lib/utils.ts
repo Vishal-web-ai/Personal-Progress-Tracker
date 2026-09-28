@@ -2,6 +2,14 @@ export function cn(...classes: (string | false | null | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }
 
+/** Coerce a persisted minutes value to a finite positive number. Older records
+ *  stored these as numeric strings ("0", "00"); those are truthy, so they
+ *  rendered as "0h 0m" and made `+` concatenate instead of add. */
+export function toMinutes(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 export function formatDuration(minutes: number): string {
   const m = Math.round(minutes);
   if (m < 60) return `${m}m`;

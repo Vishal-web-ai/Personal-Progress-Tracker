@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Plus, Trash2, Flag, Clock, Target, MoreHorizontal, Check, X, GripVertical, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toMinutes } from "@/lib/utils";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea, Select } from "@/components/ui/Form";
@@ -104,8 +104,8 @@ export function PhaseTaskManager({ phaseId, goalId, goalColor, onClose }: PhaseT
     reorderPhaseTasks(phaseId, taskIds);
   };
 
-  const totalEstimated = tasks.reduce((sum, t) => sum + (t.estimatedMinutes || 0), 0);
-  const totalActual = tasks.reduce((sum, t) => sum + (t.actualMinutes || 0), 0);
+  const totalEstimated = tasks.reduce((sum, t) => sum + toMinutes(t.estimatedMinutes), 0);
+  const totalActual = tasks.reduce((sum, t) => sum + toMinutes(t.actualMinutes), 0);
   const completedCount = tasks.filter((t) => t.status === "done").length;
   const milestoneCount = tasks.filter((t) => t.isMilestone).length;
 
@@ -433,16 +433,16 @@ function PhaseTaskItem({
             <p className="mt-0.5 text-[12px] text-muted line-clamp-1">{task.description}</p>
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-muted">
-            {task.estimatedMinutes && (
+            {toMinutes(task.estimatedMinutes) > 0 && (
               <span className="flex items-center gap-1">
                 <Clock size={11} />
-                {Math.round(task.estimatedMinutes / 60)}h {task.estimatedMinutes % 60}m
+                {Math.round(toMinutes(task.estimatedMinutes) / 60)}h {toMinutes(task.estimatedMinutes) % 60}m
               </span>
             )}
-            {task.actualMinutes && task.actualMinutes > 0 && (
+            {toMinutes(task.actualMinutes) > 0 && (
               <span className="flex items-center gap-1 text-accent">
                 <TrendingUp size={11} />
-                {Math.round(task.actualMinutes / 60)}h {task.actualMinutes % 60}m
+                {Math.round(toMinutes(task.actualMinutes) / 60)}h {toMinutes(task.actualMinutes) % 60}m
               </span>
             )}
             {task.dueDate && <span>{new Date(task.dueDate).toLocaleDateString()}</span>}
