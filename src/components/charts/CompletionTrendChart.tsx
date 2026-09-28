@@ -22,8 +22,17 @@ const DOT_R = 4;
 const DOT_ACTIVE_R = 6;
 
 function metricValue(p: PeriodPoint, metric: TrendMetric): number {
+  // A day can carry data (focus time logged) with nothing planned, so pct is
+  // null. Coercing that to 0 drew a real-looking 0% dip for a day the user
+  // actually worked; it stays a gap instead.
   if (metric === "pct") return p.pct ?? 0;
   return p.completed;
+}
+
+/** True when the point holds a value the metric can actually plot. */
+function isPlottable(p: PeriodPoint, metric: TrendMetric): boolean {
+  if (!p.hasData) return false;
+  return metric === "pct" ? p.pct != null : true;
 }
 
 function formatMetric(point: PeriodPoint, metric: TrendMetric): string {
@@ -46,11 +55,11 @@ function formatAxisValue(value: number, metric: TrendMetric): string {
  * made the line dive to the floor every time you took a day off, which read as
  * "my history reset".
  */
-function splitIntoSegments(points: PeriodPoint[]): number[][] {
+function splitIntoSegments(points: PeriodPoint[], metric: TrendMetric): number[][] {
   const segments: number[][] = [];
   let run: number[] = [];
   points.forEach((p, i) => {
-    if (p.hasData) {
+    if (isPlottable(p, metric)) {
       run.push(i);
     } else if (run.length > 0) {
       segments.push(run);
@@ -59,6 +68,16 @@ function splitIntoSegments(points: PeriodPoint[]): number[][] {
   });
   if (run.length > 0) segments.push(run);
   return segments;
+}
+
+/**
+ * A single data point still has to read as a line, not a stray dot. Draw it as a
+ * stem rising from the 0% baseline to the point's value, so one active day looks
+ * like a lollipop rather than a horizontal line sitting at that day's rate —
+ * which read as if the entire week had been spent at 50%.
+ */
+function soloSegment(pt: [number, number], baselineY: number): [number, number][] {
+  return [[pt[0], baselineY], pt];
 }
 
 /**
@@ -108,7 +127,7 @@ export function CompletionTrendChart({
   const data = useMemo(() => points, [points]);
   // Empty days are excluded from the scale too, so a gap doesn't drag the
   // axis down to 0. If literally nothing has data we still need a sane range.
-  const plotData = useMemo(() => data.filter((p) => p.hasData), [data]);
+  const plotData = useMemo(() => data.filter((p) => isPlottable(p, metric)), [data, metric]);
   const values = useMemo(() => plotData.map((p) => metricValue(p, metric)), [plotData, metric]);
 
   // Fixed 0-100% scale for completion rate, auto-scale for other metrics
@@ -118,6 +137,8 @@ export function CompletionTrendChart({
 
   const innerW = Math.max(0, width - PAD.left - PAD.right);
   const innerH = height - PAD.top - PAD.bottom;
+  // A lone point would divide by zero here; give it a sensible hit box.
+  const stepW = data.length > 1 ? innerW / (data.length - 1) : innerW;
   const xFor = useCallback(
     (i: number) => (data.length <= 1 ? PAD.left : PAD.left + (i / (data.length - 1)) * innerW),
     [data.length, innerW]
@@ -128,41 +149,39 @@ export function CompletionTrendChart({
   );
 
   // X positions stay pinned to the full timeline so a gap keeps its true width;
-  // only the drawn segments skip the empty days.
+  // only the drawn segments skip the empty days. A run of one is drawn as a stem
+  // from the baseline so a single active day still reads as a line.
   const segments = useMemo(
     () =>
-      splitIntoSegments(data).map((run) =>
-        run.map((i) => [xFor(i), yFor(metricValue(data[i], metric))] as [number, number])
-      ),
-    [data, metric, xFor, yFor]
+      splitIntoSegments(data, metric).map((run) => {
+        const pts = run.map(
+          (i) => [xFor(i), yFor(metricValue(data[i], metric))] as [number, number]
+        );
+        return pts.length === 1 ? soloSegment(pts[0], PAD.top + innerH) : pts;
+      }),
+    [data, metric, xFor, yFor, innerH]
   );
 
-  // When every point has data (a full week) keep the original look: the line
-  // reaches both chart edges. As soon as a gap exists, points stay on their true
-  // x positions so the gap is an honest hole rather than a flat line drawn
-  // through days that never happened.
-  const drawnSegments = useMemo(() => {
-    if (data.length < 2 || segments.length !== 1) return segments;
-    const seg = segments[0];
-    const left: [number, number] = [PAD.left, seg[0][1]];
-    const right: [number, number] = [width - PAD.right, seg[seg.length - 1][1]];
-    return [[left, ...seg, right]];
-  }, [segments, data.length, width]);
-
+  // Segments are drawn exactly where the data is. The chart used to splice two
+  // synthetic points onto the ends of a lone segment — to "reach the chart
+  // edges" — but xFor already maps the first and last index onto those edges, so
+  // that only ever duplicated the endpoints. With a single active day it turned
+  // one real point into a flat line across the whole chart at that day's rate.
+  // Gaps stay gaps; a lone point is widened only to its own slot.
   const areaPaths = useMemo(
     () =>
-      drawnSegments
+      segments
         .filter((seg) => seg.length > 1)
         .map(
           (seg) =>
             `${smoothLine(seg)} L${seg[seg.length - 1][0]},${PAD.top + innerH} L${seg[0][0]},${PAD.top + innerH} Z`
         ),
-    [drawnSegments, innerH]
+    [segments, innerH]
   );
 
   const linePaths = useMemo(
-    () => drawnSegments.filter((seg) => seg.length > 1).map((seg) => smoothLine(seg)),
-    [drawnSegments]
+    () => segments.filter((seg) => seg.length > 1).map((seg) => smoothLine(seg)),
+    [segments]
   );
 
   const tooltipIndex = pinned ?? hover;
@@ -254,9 +273,9 @@ export function CompletionTrendChart({
           {data.map((p, i) => (
             <rect
               key={`h-${i}`}
-              x={xFor(i) - innerW / (data.length - 1) / 2}
+              x={xFor(i) - stepW / 2}
               y={PAD.top}
-              width={innerW / (data.length - 1)}
+              width={stepW}
               height={innerH}
               fill="transparent"
               className="cursor-pointer"
@@ -267,7 +286,7 @@ export function CompletionTrendChart({
           ))}
 
           {data.map((p, i) =>
-            p.hasData ? (
+            isPlottable(p, metric) ? (
               <circle
                 key={`dot-${i}`}
                 cx={xFor(i)}
