@@ -12,6 +12,11 @@ export interface PeriodPoint {
   completed: number; // tasks completed in this period
   focusMinutes: number; // session active time in this period
   pct: number | null; // completion rate (0-100), null when nothing was planned
+  /** Compact x-axis text for points whose full label is too wide to plot
+   *  without crowding — the week a block starts, e.g. "1 Nov". Display only;
+   *  `label` and `title` still carry the full range for the axis fallback and
+   *  the tooltip. */
+  shortLabel?: string;
   /** True only when the period recorded real activity. Charts must draw
    *  no-data periods as gaps — plotting them as 0% makes a line dive to the
    *  floor on every day the user did nothing, and future days of the current
@@ -34,7 +39,8 @@ function makePoint(
   title: string,
   planned: number,
   completed: number,
-  focusMinutes: number
+  focusMinutes: number,
+  shortLabel?: string
 ): PeriodPoint {
   return {
     key: String(start),
@@ -46,6 +52,7 @@ function makePoint(
     focusMinutes,
     pct: planned === 0 ? null : Math.round((completed / planned) * 100),
     hasData: pointHasData({ planned, completed, focusMinutes }),
+    ...(shortLabel ? { shortLabel } : {}),
   };
 }
 
@@ -173,6 +180,14 @@ export function buildMonthWeeks(
       ? `${from.getDate()}–${to.getDate()} ${MONTHS[from.getMonth()].slice(0, 3)}`
       : `${from.getDate()} ${MONTHS[from.getMonth()].slice(0, 3)} – ${to.getDate()} ${MONTHS[to.getMonth()].slice(0, 3)}`;
 
+    // The range above is right for the tooltip but far too wide to print under
+    // every point on a phone — a six-block month overlapped itself. The axis
+    // gets just the week's start date; the numbers and boundaries are unchanged.
+    // Keyed off the real Monday rather than the clipped `from`, so a month that
+    // begins mid-week still steps by seven days instead of showing a stub.
+    const weekStartDate = new Date(weekStart);
+    const shortLabel = `${weekStartDate.getDate()} ${MONTHS[weekStartDate.getMonth()].slice(0, 3)}`;
+
     points.push(
       makePoint(
         weekStart,
@@ -180,7 +195,8 @@ export function buildMonthWeeks(
         `${label}, ${from.getFullYear()}`,
         plannedCount,
         completedCount,
-        focusMinutes
+        focusMinutes,
+        shortLabel
       )
     );
   }

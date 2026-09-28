@@ -251,24 +251,57 @@ export function CompletionTrendChart({
             />
           ))}
 
-          {data.map((p, i) => {
-            const labelText = customLabels?.[i] ?? p.label;
+          {(() => {
+            // Candidate labels follow the existing every-Nth rule; then any
+            // label that would physically overlap the previous one is dropped.
+            // The collision test is a no-op when there is room, so short labels
+            // like "Mon" are never affected. The current period always shows:
+            // if it collides it evicts its left neighbour instead of vanishing.
             const showAll = data.length <= 7;
             const interval = showAll ? 1 : Math.max(2, Math.floor(data.length / 5));
-            const show = i % interval === 0 || i === data.length - 1;
-            return show ? (
-              <text
-                key={i}
-                x={xFor(i)}
-                y={height - 4}
-                textAnchor="middle"
-                fontSize={10}
-                fill="var(--text-muted)"
-              >
-                {labelText}
-              </text>
-            ) : null;
-          })}
+            const last = data.length - 1;
+            const out: { key: number; right: number; node: React.ReactNode }[] = [];
+            data.forEach((p, i) => {
+              if (i % interval !== 0 && i !== last) return;
+              const labelText = p.shortLabel ?? customLabels?.[i] ?? p.label;
+              const x = xFor(i);
+              // Inter at 10px; generous estimate so we skip early rather than clip.
+              const w = labelText.length * 6.2;
+              // Centre every label except the outer two, which anchor inward.
+              // A centred first/last label spills past the plot edge and the
+              // SVG viewport clips it, chopping the date in half.
+              const isFirst = i === 0;
+              const isLast = i === last;
+              const anchor = isFirst ? "start" : isLast ? "end" : "middle";
+              const left = isFirst ? x : isLast ? x - w : x - w / 2;
+              const right = left + w;
+              // A date cut off at the edge is worse than one dropped label.
+              if (right > width - PAD.right + 0.5 && !isLast) return;
+              if (out.length > 0 && left < out[out.length - 1].right) {
+                // Only the current period is allowed to displace a neighbour;
+                // everything else just yields.
+                if (!isLast) return;
+                out.pop();
+              }
+              out.push({
+                key: i,
+                right,
+                node: (
+                  <text
+                    key={i}
+                    x={x}
+                    y={height - 4}
+                    textAnchor={anchor}
+                    fontSize={10}
+                    fill="var(--text-muted)"
+                  >
+                    {labelText}
+                  </text>
+                ),
+              });
+            });
+            return out.map((o) => o.node);
+          })()}
 
           {data.map((p, i) => (
             <rect
