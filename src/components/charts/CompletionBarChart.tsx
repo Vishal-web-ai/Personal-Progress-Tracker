@@ -113,7 +113,7 @@ export function CompletionBarChart({
                 const x = xFor(i);
                 const isCurrent = i === data.length - 1;
                 const isActive = tooltipIndex === i;
-                const hasData = d.planned > 0;
+                const hasData = d.hasData;
 
                 const labelW = d.label.length * 5.5;
                 const labelX = x + BAR_W / 2;

@@ -15,24 +15,14 @@ import { cn } from "@/lib/utils";
 import {
   buildPeriodSet,
   buildWeekDays,
+  buildMonthWeeks,
   percentDelta,
+  countDelta,
   type AnalyticsPeriod,
-  type PeriodPoint,
 } from "@/lib/analytics";
 import { CompletionBarChart } from "@/components/charts/CompletionBarChart";
 import { CompletionTrendChart } from "@/components/charts/CompletionTrendChart";
-import {
-  startOfDay,
-  startOfWeek,
-  startOfMonth,
-  WEEKDAYS_SHORT,
-  MONTHS,
-  monthKey,
-  monthLabel,
-} from "@/lib/time";
-import type { Task, WorkSession } from "@/types";
-import { MonthPicker } from "@/components/ui/MonthPicker";
-const DAY = 86400000;
+import { startOfMonth } from "@/lib/time";
 
 const PERIODS: { id: AnalyticsPeriod; label: string }[] = [
   { id: "weekly", label: "Weekly" },
@@ -99,68 +89,6 @@ function DeltaBadge({
    );
 }
  
-function buildWeekBlocks(startTimestamp: number, numWeeks: number, tasks: Task[], sessions: WorkSession[]) {
-   const DAY = 86400000;
-   const plannedMap = new Map<number, number>();
-   const completedMap = new Map<number, number>();
-   const focusMap = new Map<number, number>();
- 
-   for (const t of tasks) {
-        if (t.createdAt) {
-          const dayStart = startOfDay(new Date(t.createdAt));
-          plannedMap.set(dayStart, (plannedMap.get(dayStart) ?? 0) + 1);
-        }
-        if (t.completedAt) {
-          const dayStart = startOfDay(new Date(t.completedAt));
-          completedMap.set(dayStart, (completedMap.get(dayStart) ?? 0) + 1);
-        }
-      }
-
-      for (const s of sessions) {
-        if (s.status !== "saved") continue;
-        const anchor = s.endedAt ?? s.startedAt;
-        if (!anchor) continue;
-        const mins = (s.activeDuration ?? 0) / 60000;
-        if (mins <= 0) continue;
-        const dayStart = startOfDay(new Date(anchor));
-        focusMap.set(dayStart, (focusMap.get(dayStart) ?? 0) + mins);
-      }
- 
-   const points: PeriodPoint[] = [];
-   for (let weekIndex = 0; weekIndex < numWeeks; weekIndex++) {
-     const weekStart = startTimestamp + weekIndex * 7 * DAY;
-     let planned = 0;
-     let completed = 0;
-     let focus = 0;
-     for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-       const dayStart = weekStart + dayOffset * DAY;
-       planned += plannedMap.get(dayStart) ?? 0;
-       completed += completedMap.get(dayStart) ?? 0;
-       focus += focusMap.get(dayStart) ?? 0;
-     }
-     const pct = planned === 0 ? null : Math.round((completed / planned) * 100);
-     const startDate = new Date(weekStart);
-     const endDate = new Date(weekStart + 6 * DAY); // last day of week
-     const label = `Week ${weekIndex + 1}`;
-     const title = `${startDate.getDate()} ${MONTHS[startDate.getMonth()].slice(0, 3)} – ${endDate.getDate()} ${MONTHS[endDate.getMonth()].slice(0, 3)}, ${startDate.getFullYear()}`;
-     points.push({
-       key: String(weekStart),
-       start: weekStart,
-       label,
-       title,
-       planned,
-       completed,
-       focusMinutes: focus,
-       pct,
-     });
-   }
- 
-   // Also compute a title for the whole block (optional)
-   const start = new Date(startTimestamp);
-   const end = new Date(startTimestamp + numWeeks * 7 * DAY - 1); // last ms
-   const blockTitle = `${start.getDate()} ${MONTHS[start.getMonth()].slice(0, 3)} – ${end.getDate()} ${MONTHS[end.getMonth()].slice(0, 3)}, ${start.getFullYear()}`;
-   return { points, title: blockTitle };
- }
 
 export function AnalyticsContent() {
   const { tasks, sessions } = useApp();
@@ -170,30 +98,27 @@ export function AnalyticsContent() {
   const [monthOffset, setMonthOffset] = useState(0);
   const [selectedMonthStart, setSelectedMonthStart] = useState(startOfMonth(new Date()));
 
-    // Filter tasks by bucket
-  const weeklyTasks = useMemo(() => tasks.filter((t) => t.bucket === "weekly"), [tasks]);
-  const dailyTasks = useMemo(() => tasks.filter((t) => t.bucket === "daily"), [tasks]);
-  const monthlyTasks = useMemo(() => tasks.filter((t) => t.bucket === "monthly"), [tasks]);
-
-  // For monthly period, build weekly breakdown of selected month for trend chart
-const monthData = useMemo(() => {
-    if (period !== "monthly") return null;
-    const baseMonthStart = startOfMonth(new Date(selectedMonthStart));
-    const offsetMonthStart = baseMonthStart + monthOffset * 28 * DAY; // roughly 4 weeks per month
-    // Align to month start
-    const monthStart = startOfMonth(new Date(offsetMonthStart));
-    const weekBlocks = buildWeekBlocks(monthStart, 5, dailyTasks, sessions);
-    return weekBlocks;
-  }, [period, dailyTasks, sessions, selectedMonthStart, monthOffset]);
-
+  // Every task counts, whatever its own daily/weekly/monthly schedule. The
+  // period tabs below pick a time window; they must never filter by bucket —
+  // that made the whole report read zero for anyone who only creates daily
+  // tasks, which is what the dashboard "+" button produces.
   const set = useMemo(
-    () => buildPeriodSet(period, period === "monthly" ? monthlyTasks : weeklyTasks, sessions),
-    [period, weeklyTasks, monthlyTasks, sessions]
+    () => buildPeriodSet(period, tasks, sessions),
+    [period, tasks, sessions]
   );
 
+  // Monthly tab: Mon–Sun week blocks clipped to the selected calendar month.
+  const monthData = useMemo(() => {
+    if (period !== "monthly") return null;
+    const base = startOfMonth(new Date(selectedMonthStart));
+    const shifted = new Date(base);
+    shifted.setMonth(shifted.getMonth() + monthOffset);
+    return buildMonthWeeks(startOfMonth(shifted), tasks, sessions);
+  }, [period, tasks, sessions, selectedMonthStart, monthOffset]);
+
   const weekData = useMemo(
-    () => buildWeekDays(weekOffset, dailyTasks, sessions),
-    [weekOffset, dailyTasks, sessions]
+    () => buildWeekDays(weekOffset, tasks, sessions),
+    [weekOffset, tasks, sessions]
   );
 
   const hasAnyData = useMemo(
@@ -219,6 +144,7 @@ const monthData = useMemo(() => {
   };
 
   const rateDelta = percentDelta(set.current, set.previous);
+  const countDeltaValue = countDelta(set.current, set.previous);
 
   const periodWord = pastPeriodWord(period);
   const titleWord = currentWord(period);
@@ -321,7 +247,14 @@ const monthData = useMemo(() => {
               label="Tasks Completed"
               subtitle={`${titleWord} statistics`}
               value={String(set.current?.completed ?? 0)}
-              badge={<DeltaBadge delta={rateDelta} previousWord={periodWord} suffix="pp" />}
+              badge={
+                <DeltaBadge
+                  delta={countDeltaValue}
+                  previousWord={periodWord}
+                  suffix="task"
+                  equalLabel={`No change vs ${periodWord}`}
+                />
+              }
               delay={1}
             />
           </section>

@@ -40,6 +40,28 @@ function formatAxisValue(value: number, metric: TrendMetric): string {
 }
 
 /**
+ * Index runs of consecutive data-bearing points. Empty days (rest days, days
+ * before you started, days still ahead in the current week) are *not* drawn —
+ * connecting straight through them would invent values, and plotting them as 0%
+ * made the line dive to the floor every time you took a day off, which read as
+ * "my history reset".
+ */
+function splitIntoSegments(points: PeriodPoint[]): number[][] {
+  const segments: number[][] = [];
+  let run: number[] = [];
+  points.forEach((p, i) => {
+    if (p.hasData) {
+      run.push(i);
+    } else if (run.length > 0) {
+      segments.push(run);
+      run = [];
+    }
+  });
+  if (run.length > 0) segments.push(run);
+  return segments;
+}
+
+/**
  * Generate a smooth SVG path through points using Catmull-Rom → Cubic Bezier conversion.
  * Tension 0.5 = standard Catmull-Rom (clamped at endpoints).
  */
@@ -84,8 +106,11 @@ export function CompletionTrendChart({
   const [pinned, setPinned] = useState<number | null>(null);
 
   const data = useMemo(() => points, [points]);
-  const values = data.map((p) => metricValue(p, metric));
-  
+  // Empty days are excluded from the scale too, so a gap doesn't drag the
+  // axis down to 0. If literally nothing has data we still need a sane range.
+  const plotData = useMemo(() => data.filter((p) => p.hasData), [data]);
+  const values = useMemo(() => plotData.map((p) => metricValue(p, metric)), [plotData, metric]);
+
   // Fixed 0-100% scale for completion rate, auto-scale for other metrics
   const isPct = metric === "pct";
   const maxVal = isPct ? 100 : Math.max(1, ...values);
@@ -102,27 +127,46 @@ export function CompletionTrendChart({
     [innerH, minVal, maxVal]
   );
 
-  const coords: [number, number][] = useMemo(
-    () => data.map((p, i) => [xFor(i), yFor(metricValue(p, metric))]),
+  // X positions stay pinned to the full timeline so a gap keeps its true width;
+  // only the drawn segments skip the empty days.
+  const segments = useMemo(
+    () =>
+      splitIntoSegments(data).map((run) =>
+        run.map((i) => [xFor(i), yFor(metricValue(data[i], metric))] as [number, number])
+      ),
     [data, metric, xFor, yFor]
   );
 
-  // Extend line to chart edges by prepending/appending edge points
-  const extendedCoords = useMemo(() => {
-    if (coords.length < 2) return coords;
-    const leftEdge: [number, number] = [PAD.left, coords[0][1]];
-    const rightEdge: [number, number] = [width - PAD.right, coords[coords.length - 1][1]];
-    return [leftEdge, ...coords, rightEdge];
-  }, [coords, width]);
+  // When every point has data (a full week) keep the original look: the line
+  // reaches both chart edges. As soon as a gap exists, points stay on their true
+  // x positions so the gap is an honest hole rather than a flat line drawn
+  // through days that never happened.
+  const drawnSegments = useMemo(() => {
+    if (data.length < 2 || segments.length !== 1) return segments;
+    const seg = segments[0];
+    const left: [number, number] = [PAD.left, seg[0][1]];
+    const right: [number, number] = [width - PAD.right, seg[seg.length - 1][1]];
+    return [[left, ...seg, right]];
+  }, [segments, data.length, width]);
 
-  const linePath = useMemo(() => smoothLine(extendedCoords), [extendedCoords]);
+  const areaPaths = useMemo(
+    () =>
+      drawnSegments
+        .filter((seg) => seg.length > 1)
+        .map(
+          (seg) =>
+            `${smoothLine(seg)} L${seg[seg.length - 1][0]},${PAD.top + innerH} L${seg[0][0]},${PAD.top + innerH} Z`
+        ),
+    [drawnSegments, innerH]
+  );
 
-  const areaPath =
-    extendedCoords.length === 0
-      ? ""
-      : `${linePath} L${extendedCoords[extendedCoords.length - 1][0]},${PAD.top + innerH} L${extendedCoords[0][0]},${PAD.top + innerH} Z`;
+  const linePaths = useMemo(
+    () => drawnSegments.filter((seg) => seg.length > 1).map((seg) => smoothLine(seg)),
+    [drawnSegments]
+  );
 
   const tooltipIndex = pinned ?? hover;
+  const isActive = (i: number) => tooltipIndex === i;
   const active = tooltipIndex !== null ? data[tooltipIndex] : null;
 
   return (
@@ -170,11 +214,13 @@ export function CompletionTrendChart({
             );
           })}
 
-          <path d={areaPath} fill="var(--accent)" opacity={0.08} />
-          {data.length > 1 && (
+          {areaPaths.map((d, i) => (
+            <path key={`area-${animateKey}-${i}`} d={d} fill="var(--accent)" opacity={0.08} />
+          ))}
+          {linePaths.map((d, i) => (
             <path
-              key={`${animateKey}-line`}
-              d={linePath}
+              key={`${animateKey}-line-${i}`}
+              d={d}
               fill="none"
               stroke="var(--accent)"
               strokeWidth={2.5}
@@ -184,7 +230,7 @@ export function CompletionTrendChart({
                 animationDelay: `${baseDelay}ms`,
               }}
             />
-          )}
+          ))}
 
           {data.map((p, i) => {
             const labelText = customLabels?.[i] ?? p.label;
@@ -220,20 +266,19 @@ export function CompletionTrendChart({
             />
           ))}
 
-          {data.map((p, i) => {
-            const isActive = tooltipIndex === i;
-            return (
+          {data.map((p, i) =>
+            p.hasData ? (
               <circle
                 key={`dot-${i}`}
                 cx={xFor(i)}
                 cy={yFor(metricValue(p, metric))}
-                r={isActive ? DOT_ACTIVE_R : DOT_R}
-                fill={isActive ? "var(--accent)" : "var(--surface)"}
+                r={isActive(i) ? DOT_ACTIVE_R : DOT_R}
+                fill={isActive(i) ? "var(--accent)" : "var(--surface)"}
                 stroke="var(--accent)"
-                strokeWidth={isActive ? 2.5 : 1.5}
+                strokeWidth={isActive(i) ? 2.5 : 1.5}
               />
-            );
-          })}
+            ) : null
+          )}
 
           {tooltipIndex !== null && active && (
             <g pointerEvents="none">
