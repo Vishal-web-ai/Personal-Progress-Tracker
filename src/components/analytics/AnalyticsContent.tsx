@@ -246,7 +246,11 @@ export function AnalyticsContent() {
               icon={<BarChart3 size={17} />}
               label="Tasks Completed"
               subtitle={`${titleWord} statistics`}
-              value={String(set.current?.completed ?? 0)}
+               value={
+                 set.current && set.current.planned > 0
+                   ? `${set.current.completed} / ${set.current.planned}`
+                   : String(set.current?.completed ?? 0)
+               }
               badge={
                 <DeltaBadge
                   delta={countDeltaValue}
@@ -364,17 +368,15 @@ export function AnalyticsContent() {
                     metric="pct"
                     animateKey={`week-${weekOffset}-pct-${transitionKey}`}
                     baseDelay={750}
-                    customLabels={weekData.points.map((p) => p.label)}
                   />
               ) : period === "monthly" && monthData ? (
-                              <CompletionTrendChart
-                                                 points={monthData.points}
-                                                 metric="pct"
-                                                 animateKey={`month-weekly-${transitionKey}`}
-                                                 baseDelay={750}
-                                                 customLabels={monthData.points.map((p) => p.label)}
-                                               />
-                            ) : (
+                <CompletionTrendChart
+                  points={monthData.points}
+                  metric="pct"
+                  animateKey={`month-weekly-${transitionKey}`}
+                  baseDelay={750}
+                />
+              ) : (
                 <CompletionTrendChart
                   points={[...set.points].reverse()}
                   metric="pct"

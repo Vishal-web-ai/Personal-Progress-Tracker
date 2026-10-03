@@ -12,11 +12,6 @@ export interface PeriodPoint {
   completed: number; // tasks completed in this period
   focusMinutes: number; // session active time in this period
   pct: number | null; // completion rate (0-100), null when nothing was planned
-  /** Compact x-axis text for points whose full label is too wide to plot
-   *  without crowding — the week a block starts, e.g. "1 Nov". Display only;
-   *  `label` and `title` still carry the full range for the axis fallback and
-   *  the tooltip. */
-  shortLabel?: string;
   /** True only when the period recorded real activity. Charts must draw
    *  no-data periods as gaps — plotting them as 0% makes a line dive to the
    *  floor on every day the user did nothing, and future days of the current
@@ -39,8 +34,7 @@ function makePoint(
   title: string,
   planned: number,
   completed: number,
-  focusMinutes: number,
-  shortLabel?: string
+  focusMinutes: number
 ): PeriodPoint {
   return {
     key: String(start),
@@ -52,7 +46,6 @@ function makePoint(
     focusMinutes,
     pct: planned === 0 ? null : Math.round((completed / planned) * 100),
     hasData: pointHasData({ planned, completed, focusMinutes }),
-    ...(shortLabel ? { shortLabel } : {}),
   };
 }
 
@@ -141,9 +134,12 @@ export function buildWeekDays(
 
 /**
  * Mon–Sun week blocks for the calendar month containing `monthStart`, aligned to
- * real weeks. Only the part of each week that falls inside the month is counted
- * and labelled, so a month that starts mid-week gets honest partial weeks instead
- * of a phantom all-zero trailing week.
+ * real weeks and labelled "Week 1", "Week 2", … counted from the first full week
+ * in the month. The leading block is skipped when the month starts mid-week — it
+ * would be a 1–6 day stub whose length varies with the calendar, so it made the
+ * x-axis both ugly and inconsistent month to month. Every month still yields 4–5
+ * full weeks. The real date range stays on `title` for the tooltip; the month
+ * nav above the chart carries the month itself.
  */
 export function buildMonthWeeks(
   monthStart: number,
@@ -158,7 +154,15 @@ export function buildMonthWeeks(
   const { planned, completed, focus } = bucketByDay(tasks, sessions);
 
   const points: PeriodPoint[] = [];
-  for (let weekStart = startOfWeek(new Date(first)); weekStart < nextMonth; weekStart += 7 * DAY) {
+  const firstMonday = startOfWeek(new Date(first));
+  // A month that doesn't begin on a Monday has its `startOfWeek` in the previous
+  // month. Skip that block and start at the first Monday actually inside the month.
+  let weekStart = firstMonday < first ? firstMonday + 7 * DAY : firstMonday;
+  let weekNumber = 0;
+
+  for (; weekStart < nextMonth; weekStart += 7 * DAY) {
+    weekNumber += 1;
+
     let plannedCount = 0;
     let completedCount = 0;
     let focusMinutes = 0;
@@ -170,33 +174,25 @@ export function buildMonthWeeks(
       focusMinutes += focus.get(d) ?? 0;
     }
 
-    // Clip the week to the month for both the numbers and the label.
+    // Clip the week to the month for the tooltip's date range. The leading stub is
+    // gone, so only the trailing week can be clipped now.
     const overlapStart = Math.max(weekStart, first);
     const overlapEnd = Math.min(weekStart + 6 * DAY, nextMonth - 1);
     const from = new Date(overlapStart);
     const to = new Date(overlapEnd);
     const sameMonth = from.getMonth() === to.getMonth();
-    const label = sameMonth
+    const range = sameMonth
       ? `${from.getDate()}–${to.getDate()} ${MONTHS[from.getMonth()].slice(0, 3)}`
       : `${from.getDate()} ${MONTHS[from.getMonth()].slice(0, 3)} – ${to.getDate()} ${MONTHS[to.getMonth()].slice(0, 3)}`;
-
-    // The range above is right for the tooltip but far too wide to print under
-    // every point on a phone — a six-block month overlapped itself. The axis
-    // gets just the week's start date; the numbers and boundaries are unchanged.
-    // Keyed off the real Monday rather than the clipped `from`, so a month that
-    // begins mid-week still steps by seven days instead of showing a stub.
-    const weekStartDate = new Date(weekStart);
-    const shortLabel = `${weekStartDate.getDate()} ${MONTHS[weekStartDate.getMonth()].slice(0, 3)}`;
 
     points.push(
       makePoint(
         weekStart,
-        label,
-        `${label}, ${from.getFullYear()}`,
+        `Week ${weekNumber}`,
+        `${range}, ${from.getFullYear()}`,
         plannedCount,
         completedCount,
-        focusMinutes,
-        shortLabel
+        focusMinutes
       )
     );
   }

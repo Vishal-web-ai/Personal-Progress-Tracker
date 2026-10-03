@@ -14,7 +14,6 @@ interface CompletionTrendChartProps {
   height?: number;
   baseDelay?: number;
   className?: string;
-  customLabels?: string[];
 }
 
 const PAD = { top: 24, bottom: 28, left: 52, right: 16 };
@@ -118,7 +117,6 @@ export function CompletionTrendChart({
   height = 240,
   baseDelay = 0,
   className,
-  customLabels,
 }: CompletionTrendChartProps) {
   const { ref, width } = useContainerWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
@@ -263,7 +261,7 @@ export function CompletionTrendChart({
             const out: { key: number; right: number; node: React.ReactNode }[] = [];
             data.forEach((p, i) => {
               if (i % interval !== 0 && i !== last) return;
-              const labelText = p.shortLabel ?? customLabels?.[i] ?? p.label;
+               const labelText = p.label;
               const x = xFor(i);
               // Inter at 10px; generous estimate so we skip early rather than clip.
               const w = labelText.length * 6.2;
