@@ -61,7 +61,6 @@ interface AppContextValue {
   removePhaseTask: (phaseId: string, taskId: string) => void;
   reorderPhaseTasks: (phaseId: string, taskIds: string[]) => void;
   togglePhaseTask: (phaseId: string, taskId: string) => void;
-  startPhase: (goalId: string, phaseId: string) => void;
   completePhase: (goalId: string, phaseId: string) => void;
   addPhaseRetrospective: (retrospective: Omit<PhaseRetrospective, "id" | "createdAt">) => void;
   getPhaseRetrospective: (phaseId: string) => PhaseRetrospective | undefined;
@@ -316,20 +315,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!state) return;
     mutationAtRef.current = Date.now();
+    const producedAt = mutationAtRef.current;
     if (persistTimer.current !== null) window.clearTimeout(persistTimer.current);
     persistTimer.current = window.setTimeout(() => {
       persistTimer.current = null;
       void (async () => {
         try {
           const savedAt = await readSavedAt();
-          if (mutationAtRef.current >= savedAt) {
+          if (producedAt >= savedAt) {
             await writeSnapshot({ 
               tasks: state.tasks, 
               sessions: state.sessions, 
               goals: state.goals,
               phaseRetrospectives: state.phaseRetrospectives,
               settings: state.settings 
-            });
+            }, producedAt);
           }
         } catch {
           // DB unavailable — retried on the next state change or pagehide flush.
@@ -342,20 +342,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state]);
 
   useEffect(() => {
-    const persist = (snapshot: AppState) => {
+    const persist = (snapshot: AppState, producedAt: number) => {
       void (async () => {
         try {
           const savedAt = await readSavedAt();
           // Don't let an older tab's in-memory copy overwrite a newer snapshot
           // that another tab already persisted.
-          if (mutationAtRef.current >= savedAt) {
+          if (producedAt >= savedAt) {
             await writeSnapshot({ 
               tasks: snapshot.tasks, 
               sessions: snapshot.sessions, 
               goals: snapshot.goals,
               phaseRetrospectives: snapshot.phaseRetrospectives,
               settings: snapshot.settings 
-            });
+            }, producedAt);
           }
         } catch {
           // DB unavailable at tab-hide; the debounced persist covers the rest.
@@ -369,7 +369,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       const s = stateRef.current;
       if (!s) return;
-      persist(s);
+      persist(s, mutationAtRef.current);
     };
     const refreshFromDb = () => {
       void (async () => {
@@ -869,27 +869,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [withProgress]);
 
-  const startPhase: AppContextValue["startPhase"] = useCallback((goalId, phaseId) => {
-    setState((s) => {
-      if (!s) return s;
-      return {
-        ...s,
-        goals: s.goals.map((g) =>
-          g.id === goalId
-            ? {
-                ...g,
-                phases: g.phases.map((p) =>
-                  p.id === phaseId
-                    ? { ...p, status: "active", startedAt: p.startedAt ?? Date.now() }
-                    : p
-                ),
-              }
-            : g
-        ),
-      };
-    });
-  }, []);
-
   const completePhase: AppContextValue["completePhase"] = useCallback((goalId, phaseId) => {
     setState((s) => {
       if (!s) return s;
@@ -991,7 +970,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removePhaseTask,
       reorderPhaseTasks,
       togglePhaseTask,
-      startPhase,
       completePhase,
       addPhaseRetrospective,
       getPhaseRetrospective,
@@ -1023,7 +1001,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     removePhaseTask,
     reorderPhaseTasks,
     togglePhaseTask,
-    startPhase,
     completePhase,
     addPhaseRetrospective,
     getPhaseRetrospective,

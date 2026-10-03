@@ -67,7 +67,14 @@ export async function readSnapshot(): Promise<PersistedSnapshot | null> {
   };
 }
 
-export async function writeSnapshot(snapshot: PersistedSnapshot): Promise<void> {
+/**
+ * `savedAt` must be the time the snapshot's state was *produced*, not the time
+ * this write happens to run. Callers compare it against their own last-mutation
+ * clock to tell "someone else stored newer data" from "this is my own write" —
+ * stamping it with `Date.now()` here makes every debounced write look newer than
+ * the state it wrote, so a returning tab re-reads and rolls itself back.
+ */
+export async function writeSnapshot(snapshot: PersistedSnapshot, savedAt?: number): Promise<void> {
   const db = await getDB();
   const tx = db.transaction(STORE, "readwrite");
   tx.store.put({ key: KEYS.tasks, value: snapshot.tasks });
@@ -75,11 +82,11 @@ export async function writeSnapshot(snapshot: PersistedSnapshot): Promise<void> 
   tx.store.put({ key: KEYS.goals, value: snapshot.goals });
   tx.store.put({ key: KEYS.phaseRetrospectives, value: snapshot.phaseRetrospectives });
   tx.store.put({ key: KEYS.settings, value: snapshot.settings });
-  tx.store.put({ key: KEYS.meta, value: { savedAt: Date.now() } });
+  tx.store.put({ key: KEYS.meta, value: { savedAt: savedAt ?? Date.now() } });
   await tx.done;
 }
 
-/** When the stored snapshot was last written (0 if it has never been persisted). */
+/** When the stored snapshot's state was produced (0 if never persisted). */
 export async function readSavedAt(): Promise<number> {
   const db = await getDB();
   const tx = db.transaction(STORE, "readonly");
