@@ -264,13 +264,12 @@ export function PhaseTimeline({ goal, className }: PhaseTimelineProps) {
           return (
             <div key={phase.id} className="relative pb-6 last:pb-0">
               {/* Timeline dot */}
-              <div
-                className="absolute left-[-6px] top-0 h-3 w-3 rounded-full border-2 border-background"
-                style={{
-                  backgroundColor: statusColors[phase.status],
-                  boxShadow: `0 0 0 2px ${statusColors[phase.status]}`,
-                }}
-              />
+                        <div
+                          className="absolute left-[-6px] top-0 h-3 w-3 rounded-full border-2 border-background"
+                          style={{
+                            backgroundColor: statusColors[phase.status],
+                          }}
+                        />
               
               {/* Connecting line */}
               {!isLast && (

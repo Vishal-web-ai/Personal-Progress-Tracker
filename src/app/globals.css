@@ -198,6 +198,44 @@ body {
   overflow: hidden;
 }
 
+/* Reveal for collapsible panel bodies (Goals phase panel). Rules match on the
+   `.open` class, so the stagger replays on every expand while staying free under
+   prefers-reduced-motion (global rule flattens animation-duration to 0.001ms). */
+.accordion-content.open .panel-body {
+  animation: panel-body-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.accordion-content.open .panel-stagger > * {
+  animation: panel-item-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.accordion-content.open .panel-stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.accordion-content.open .panel-stagger > *:nth-child(2) { animation-delay: 0.08s; }
+.accordion-content.open .panel-stagger > *:nth-child(3) { animation-delay: 0.12s; }
+.accordion-content.open .panel-stagger > *:nth-child(4) { animation-delay: 0.16s; }
+.accordion-content.open .panel-stagger > *:nth-child(5) { animation-delay: 0.2s; }
+
+/* Task rows cascade after their container. */
+.accordion-content.open .panel-stagger li {
+  animation: panel-item-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.accordion-content.open .panel-stagger li:nth-child(1) { animation-delay: 0.1s; }
+.accordion-content.open .panel-stagger li:nth-child(2) { animation-delay: 0.14s; }
+.accordion-content.open .panel-stagger li:nth-child(3) { animation-delay: 0.18s; }
+.accordion-content.open .panel-stagger li:nth-child(4) { animation-delay: 0.22s; }
+.accordion-content.open .panel-stagger li:nth-child(5) { animation-delay: 0.26s; }
+.accordion-content.open .panel-stagger li:nth-child(6) { animation-delay: 0.3s; }
+.accordion-content.open .panel-stagger li:nth-child(7) { animation-delay: 0.34s; }
+.accordion-content.open .panel-stagger li:nth-child(8) { animation-delay: 0.38s; }
+.accordion-content.open .panel-stagger li:nth-child(n+9) { animation-delay: 0.42s; }
+
+@keyframes panel-body-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes panel-item-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Toast */
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(8px); }

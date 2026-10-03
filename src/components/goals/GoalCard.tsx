@@ -37,8 +37,6 @@ interface PhaseCardProps {
   goal: Goal;
   goalColor: string;
   index?: number;
-  onManageTasks: () => void;
-  onStartPhase: () => void;
   onCompletePhase: () => void;
 }
 
@@ -47,8 +45,6 @@ export function PhaseCard({
   goal,
   goalColor,
   index,
-  onManageTasks,
-  onStartPhase,
   onCompletePhase,
 }: PhaseCardProps) {
   const { togglePhaseTask, updatePhase, removePhase, addPhaseTask } = useApp();
@@ -72,7 +68,7 @@ export function PhaseCard({
   const phaseColor = phase.color || defaultColor;
   const tintedText = `color-mix(in srgb, ${phaseColor} 78%, white)`;
   const dimmedText = `color-mix(in srgb, ${phaseColor} 50%, var(--text-secondary))`;
-  const barFill = `color-mix(in srgb, ${phaseColor} 70%, var(--surface))`;
+  const barFill = phaseColor;
 
   const panelId = `phase-panel-${phase.id}`;
   const canComplete = phase.status === "active" && progress === 100;
@@ -126,8 +122,8 @@ export function PhaseCard({
         phase.status === "completed" && "opacity-70"
       )}
       style={{
-        backgroundColor: `color-mix(in srgb, ${phaseColor} 16%, var(--surface))`,
-        borderColor: `color-mix(in srgb, ${phaseColor} 45%, var(--border))`,
+        backgroundColor: "var(--surface-elevated)",
+        borderColor: "var(--border)",
       }}
     >
       {/* Header row: the disclosure toggle and the edit affordance are siblings,
@@ -135,7 +131,16 @@ export function PhaseCard({
       <div className="flex items-start justify-between gap-3 p-5 pb-4">
         <button
           type="button"
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => {
+            // Disclosing the card always lands on the task list; the edit form is
+            // only reachable via the pencil affordance.
+            if (!expanded || editing) {
+              setEditing(false);
+              setExpanded(true);
+            } else {
+              setExpanded(false);
+            }
+          }}
           aria-expanded={expanded}
           aria-controls={panelId}
           className="group flex min-w-0 flex-1 items-start gap-3 rounded-[10px] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
@@ -208,7 +213,7 @@ export function PhaseCard({
         <div className="mb-1.5 flex items-center justify-between text-[11px]" style={{ color: dimmedText }}>
           <span className="tabular-nums">{progress}% complete</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-surface-elevated">
+        <div className="h-2 overflow-hidden rounded-full bg-surface border border-border">
           <div
             className="h-full rounded-full transition-all duration-500 ease-out"
             style={{ width: `${progress}%`, backgroundColor: barFill }}
@@ -216,10 +221,11 @@ export function PhaseCard({
         </div>
       </div>
 
-      {expanded && (
-        <div id={panelId} className="border-t border-border-soft">
-          {editing ? (
-            <div className="space-y-3 p-5">
+      <div id={panelId} className={cn("accordion-content", expanded && "open")}>
+        <div className="accordion-inner" inert={!expanded}>
+          <div className="border-t border-border-soft panel-body">
+            {editing ? (
+            <div className="panel-stagger space-y-3 p-5">
               <Field label="Phase name">
                 <Input
                   value={draft.title}
@@ -318,7 +324,7 @@ export function PhaseCard({
               </div>
             </div>
           ) : (
-            <div className="p-5">
+            <div className="panel-stagger p-5">
               {totalTasks === 0 ? (
                 <p className="py-3 text-center text-[13px] text-secondary">
                   No tasks yet. Add them to start tracking this phase.
@@ -340,7 +346,7 @@ export function PhaseCard({
                               "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
                               done
                                 ? "border-accent bg-accent text-[#061B14]"
-                                : "border-white bg-white/5 hover:bg-white/15"
+                                : "border-border bg-surface-elevated/60 hover:bg-surface-soft"
                             )}
                           >
                             {done && <Check size={11} strokeWidth={3} />}
@@ -370,11 +376,6 @@ export function PhaseCard({
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border-soft pt-4">
                 <div className="flex items-center gap-2">
-                  {phase.status === "pending" && (
-                    <Button size="sm" onClick={onStartPhase} className="whitespace-nowrap">
-                      Start phase
-                    </Button>
-                  )}
                   {phase.status === "active" && (
                     <Button
                       size="sm"
@@ -401,9 +402,6 @@ export function PhaseCard({
                       <RotateCcw size={13} /> Reopen
                     </Button>
                   )}
-                    <Button size="sm" variant="secondary" onClick={onManageTasks} className="whitespace-nowrap">
-                      Manage tasks
-                    </Button>
                 </div>
 
                 {confirmingDelete ? (
@@ -417,7 +415,7 @@ export function PhaseCard({
                     </Button>
                   </div>
                 ) : (
-                  <button
+                   <button
                     type="button"
                     onClick={() => setConfirmingDelete(true)}
                     className="pressable inline-flex h-8 items-center justify-center gap-1.5 rounded-xl px-3 text-[13px] font-medium text-muted transition-colors hover:bg-high/10 hover:text-high"
@@ -428,8 +426,9 @@ export function PhaseCard({
               </div>
             </div>
           )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -437,8 +436,6 @@ export function PhaseCard({
 interface GoalCardProps {
   goal: Goal;
   onEdit: () => void;
-  onManageTasks: (phaseId: string) => void;
-  onStartPhase: (phaseId: string) => void;
   onCompletePhase: (phaseId: string) => void;
 }
 
@@ -450,18 +447,11 @@ const GOAL_COLORS = [
   "var(--note-violet-swatch)",
 ];
 
-export function GoalCard({ goal, onEdit, onManageTasks, onStartPhase, onCompletePhase }: GoalCardProps) {
+export function GoalCard({ goal, onEdit, onCompletePhase }: GoalCardProps) {
   const goalColor = goal.color || GOAL_COLORS[0];
 
   const activePhase = goal.phases.find((p) => p.status === "active");
-  const nextPhase = goal.phases.find(
-    (p) =>
-      p.status === "pending" &&
-      (!p.dependsOn ||
-        p.dependsOn.length === 0 ||
-        p.dependsOn.every((d) => goal.phases.find((dp) => dp.id === d)?.status === "completed"))
-  );
-  const hasChips = Boolean(goal.targetDate || activePhase || nextPhase);
+  const hasChips = Boolean(goal.targetDate || activePhase);
 
   return (
     <article className="overflow-hidden rounded-[22px] border border-border bg-surface">
@@ -471,8 +461,8 @@ export function GoalCard({ goal, onEdit, onManageTasks, onStartPhase, onComplete
             <div
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
               style={{
-                backgroundColor: `color-mix(in srgb, ${goalColor} 16%, var(--surface))`,
-                color: goalColor,
+                backgroundColor: "var(--surface-soft)",
+                color: "var(--text-primary)",
               }}
             >
               <TaskIcon name={goal.icon ?? "target"} size={19} />
@@ -507,7 +497,7 @@ export function GoalCard({ goal, onEdit, onManageTasks, onStartPhase, onComplete
         </div>
 
         {hasChips && (
-          <div className="mb-6 flex flex-wrap items-center gap-2 text-[12px] text-muted">
+          <div className="mb-6 flex flex-wrap items-center gap-3 text-[12px] text-muted">
             {goal.targetDate && (() => {
               const days = Math.round((startOfDay(new Date(goal.targetDate)) - startOfDay(new Date())) / 86400000);
               const label = days === 0 ? "Due today" : days < 0 ? `${plural(Math.abs(days), "day")} overdue` : `${plural(days, "day")} left`;
@@ -522,11 +512,6 @@ export function GoalCard({ goal, onEdit, onManageTasks, onStartPhase, onComplete
                 Active: {activePhase.title}
               </span>
             )}
-            {nextPhase && !activePhase && (
-              <span className="flex items-center gap-1.5 rounded-full bg-surface-elevated px-2.5 py-1 text-secondary">
-                Next: {nextPhase.title}
-              </span>
-            )}
           </div>
         )}
 
@@ -539,8 +524,6 @@ export function GoalCard({ goal, onEdit, onManageTasks, onStartPhase, onComplete
                 goal={goal}
                 goalColor={goalColor}
                 index={index}
-                onManageTasks={() => onManageTasks(phase.id)}
-                onStartPhase={() => onStartPhase(phase.id)}
                 onCompletePhase={() => onCompletePhase(phase.id)}
               />
             ))}

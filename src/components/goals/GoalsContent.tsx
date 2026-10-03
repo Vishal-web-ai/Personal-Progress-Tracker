@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 import { useApp } from "@/store/app-store";
 import { GoalCard } from "@/components/goals/GoalCard";
 import { PhaseBuilderModal } from "@/components/goals/PhaseBuilderModal";
-import { PhaseTaskManager } from "@/components/goals/PhaseTaskManager";
 import { PhaseRetrospectiveModal } from "@/components/goals/PhaseRetrospectiveModal";
 import { SmartRescheduleModal } from "@/components/goals/SmartRescheduleModal";
+import { PhaseCelebration } from "@/components/celebration/PhaseCelebration";
 import { Goal } from "@/types";
 import { Button } from "@/components/ui/Button";
 
@@ -17,21 +17,15 @@ export function GoalsContent() {
     goals, 
     removeGoal, 
     getPhaseRetrospective,
-    startPhase,
     completePhase,
     phaseRetrospectives,
   } = useApp();
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-  const [taskManagerPhase, setTaskManagerPhase] = useState<{ phaseId: string; goalId: string; goalColor: string } | null>(null);
   const [retrospectivePhase, setRetrospectivePhase] = useState<{ phaseId: string; goalId: string; phaseTitle: string } | null>(null);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
 
   const orderedGoals = [...goals].sort((a, b) => a.createdAt - b.createdAt);
-
-  const handleStartPhase = (goalId: string, phaseId: string) => {
-    startPhase(goalId, phaseId);
-  };
 
   const handleCompletePhase = (goalId: string, phaseId: string) => {
     completePhase(goalId, phaseId);
@@ -64,10 +58,6 @@ export function GoalsContent() {
               key={goal.id}
               goal={goal}
               onEdit={() => { setEditingGoal(goal); setShowBuilder(true); }}
-              onManageTasks={(phaseId) =>
-                setTaskManagerPhase({ phaseId, goalId: goal.id, goalColor: goal.color || "var(--accent)" })
-              }
-              onStartPhase={(phaseId) => handleStartPhase(goal.id, phaseId)}
               onCompletePhase={(phaseId) => handleCompletePhase(goal.id, phaseId)}
             />
           ))}
@@ -76,11 +66,11 @@ export function GoalsContent() {
 
       {orderedGoals.length === 0 && (
         <section className="motion-stagger" aria-labelledby="empty-goals">
-          <div className="text-center py-16 rounded-[22px] border border-dashed border-border bg-surface-elevated/50">
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-surface flex items-center justify-center">
+          <div className="text-center py-16 rounded-[22px] border border-border bg-surface">
+            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-surface-soft flex items-center justify-center">
               <Target size={28} className="text-muted" />
             </div>
-            <h3 id="empty-goals" className="text-[18px] font-semibold text-secondary mb-2">No goals yet</h3>
+            <h3 id="empty-goals" className="text-[18px] font-semibold text-primary mb-2">No goals yet</h3>
             <p className="text-muted mb-6 max-w-md mx-auto">
               Create your first goal and break it into achievable phases. Track progress, time estimates, and reflect on each phase.
             </p>
@@ -92,9 +82,9 @@ export function GoalsContent() {
       )}
 
       <PhaseBuilderModal open={showBuilder} onClose={() => { setShowBuilder(false); setEditingGoal(null); }} editGoal={editingGoal || undefined} />
-      {taskManagerPhase && <PhaseTaskManager phaseId={taskManagerPhase.phaseId} goalId={taskManagerPhase.goalId} goalColor={taskManagerPhase.goalColor} onClose={() => setTaskManagerPhase(null)} />}
       {retrospectivePhase && <PhaseRetrospectiveModal open={true} onClose={() => setRetrospectivePhase(null)} phaseId={retrospectivePhase.phaseId} goalId={retrospectivePhase.goalId} phaseTitle={retrospectivePhase.phaseTitle} existingRetrospective={getPhaseRetrospective(retrospectivePhase.phaseId)} />}
       {rescheduleGoal && <SmartRescheduleModal open={true} onClose={() => setRescheduleGoal(null)} goal={rescheduleGoal} />}
+      <PhaseCelebration />
     </div>
   );
 }
