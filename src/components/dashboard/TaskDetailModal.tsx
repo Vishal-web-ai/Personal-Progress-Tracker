@@ -23,12 +23,14 @@ export function TaskDetailModal({
   label: string;
   color: string;
 }) {
-  const { tasks, toggleTask, setTaskRepeat, removeTask } = useApp();
+  const { tasks, toggleTask, setTaskRepeatEvery, removeTask } = useApp();
   const { beginSession } = useSessionFlow();
   const { toast } = useToast();
 
   const task = tasks.find((t) => t.id === taskId);
   if (!task) return null;
+
+  const repeatEvery = task.repeatEvery ?? 0;
 
   return (
     <Modal open={open} onClose={onClose} title={task.title}>
@@ -58,19 +60,19 @@ export function TaskDetailModal({
           <button
             type="button"
             role="switch"
-            aria-checked={Boolean(task.repeat)}
+            aria-checked={repeatEvery > 0}
             aria-label="Repeat this task every day"
-            onClick={() => setTaskRepeat(task.id, !task.repeat)}
+            onClick={() => setTaskRepeatEvery(task.id, repeatEvery > 0 ? undefined : 1)}
             className="pressable flex w-full items-center justify-between rounded-[12px] border border-border bg-surface-elevated px-3.5 py-2.5"
           >
             <span className="flex items-center gap-2 text-[14px] text-primary">
-              <Repeat size={15} className={task.repeat ? "text-accent" : "text-muted"} />
-              {task.repeat ? "Repeats every day" : "Repeat every day"}
+              <Repeat size={15} className={repeatEvery > 0 ? "text-accent" : "text-muted"} />
+              {repeatEvery === 1 ? "Repeats every day" : repeatEvery > 1 ? `Repeats every ${repeatEvery} days` : "Repeat every day"}
             </span>
             <span
               className={cn(
                 "relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-150",
-                task.repeat
+                repeatEvery > 0
                   ? "border-accent/60 bg-accent/15"
                   : "border-border bg-surface-soft"
               )}
@@ -78,7 +80,7 @@ export function TaskDetailModal({
               <span
                 className={cn(
                   "absolute left-0.5 top-0.5 h-[22px] w-[22px] rounded-full transition-transform duration-150",
-                  task.repeat ? "translate-x-5 bg-accent" : "bg-muted"
+                  repeatEvery > 0 ? "translate-x-5 bg-accent" : "bg-muted"
                 )}
               />
             </span>

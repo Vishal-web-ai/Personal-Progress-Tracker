@@ -230,9 +230,9 @@ describe("rolloverTasks — catch-up cap", () => {
 
   it("keeps a 3-day cadence on its grid across a long absence", () => {
     const out = rolloverTasks([makeTask({ day: "2024-01-05", repeatEvery: 3 })], "2026-10-05");
-    const live = out.find((t) => !t.archived)!;
-    expect(daysBetween("2024-01-05", live.day) % 3).toBe(0);
-    expect(live.day >= "2026-10-05").toBe(true);
+    const liveDay = out.find((t) => !t.archived)!.day!;
+    expect(daysBetween("2024-01-05", liveDay) % 3).toBe(0);
+    expect(liveDay >= "2026-10-05").toBe(true);
   });
 });
 

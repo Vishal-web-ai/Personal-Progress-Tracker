@@ -12,6 +12,7 @@ import React, {
 import type { Area, Goal, GoalProgressPoint, Note, Phase, PhaseRetrospective, PhaseTask, Task, TaskBucket, WorkSession } from "@/types";
 import { AREAS } from "@/data/initial";
 import { dayKey, dayKeyFor, monthKey, weekRange } from "@/lib/time";
+import { repeatStep, rolloverTasks } from "@/lib/tasks";
 import { toMinutes } from "@/lib/utils";
 import { readSavedAt, readSnapshot, writeSnapshot } from "@/lib/db";
 
@@ -42,7 +43,7 @@ interface AppContextValue {
   toggleTask: (id: string) => void;
   removeTask: (id: string) => void;
   setTaskStatus: (id: string, status: Task["status"]) => void;
-  setTaskRepeat: (id: string, repeat: boolean) => void;
+  setTaskRepeatEvery: (id: string, repeatEvery?: number) => void;
   saveSession: (session: Omit<WorkSession, "id" | "status"> & { status?: WorkSession["status"] }) => void;
   updateSettings: (patch: Partial<AppSettings>) => void;
   reAddTask: (id: string, day?: string) => void;
@@ -78,6 +79,15 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 /** Default icons handed to new custom areas, cycled so siblings stay distinct. */
 const CUSTOM_AREA_ICONS = ["brain", "wrench", "target", "music", "trending", "container", "mic", "grad"];
+
+/** Legacy records stored a boolean `repeat`, meaning "every day". Map it onto
+ *  the interval model, and drop anything outside the supported range. */
+function migrateRepeatEvery(value: unknown, legacyRepeat: boolean): number | undefined {
+  if (value === undefined && legacyRepeat) return 1;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > 30) return undefined;
+  return n;
+}
 
 /** Older persisted tasks used `due` ("today" | "this_week" | "later") and
  *  `estimatedMinutes`. Map them into the current bucket model, preserving the
@@ -117,7 +127,8 @@ function migrateTask(raw: Record<string, unknown>): Task {
       raw.priority === "high" || raw.priority === "medium" || raw.priority === "low"
         ? raw.priority
         : "medium",
-    status: raw.status === "done" ? "done" : "todo",
+    status:
+      raw.status === "done" || raw.status === "in_progress" ? raw.status : "todo",
     bucket,
     icon: String(raw.icon ?? "cloud"),
     goalId: raw.goalId as string | undefined,
@@ -133,47 +144,10 @@ function migrateTask(raw: Record<string, unknown>): Task {
           : undefined,
     archived: Boolean(raw.archived),
     completedAt: raw.completedAt as number | undefined,
-    repeat: Boolean(raw.repeat),
+    hasTimer: raw.hasTimer !== false,
+    repeatEvery: migrateRepeatEvery(raw.repeatEvery, raw.repeat === true),
     createdAt: (raw.createdAt as number) ?? Date.now(),
   };
-}
-
-/** Archive daily tasks whose calendar day is behind today, rollout incomplete
- *  monthly tasks forward to the current month. Repeating daily tasks keep their
- *  completed/missed record (so history + streak survive) and also spawn a fresh
- *  copy for today — the habit always reappears on its own. */
-function rolloverTasks(tasks: Task[], today: string = dayKey(new Date())): Task[] {
-  const thisMonth = monthKey(new Date());
-  return tasks.flatMap((t) => {
-    if (t.bucket === "daily" && t.day && t.day < today && !t.archived) {
-      const archived = { ...t, archived: true };
-      if (!t.repeat) return [archived];
-      return [
-        archived,
-        {
-          id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          title: t.title,
-          description: t.description,
-          areaId: t.areaId,
-          areaName: t.areaName,
-          priority: t.priority,
-          bucket: "daily",
-          icon: t.icon,
-          goalId: t.goalId,
-          status: "todo",
-          day: today,
-          archived: false,
-          hasTimer: t.hasTimer,
-          repeat: true,
-          createdAt: Date.now(),
-        },
-      ];
-    }
-    if (t.bucket === "monthly" && t.monthKey && t.monthKey < thisMonth && !t.archived && t.status !== "done") {
-      return [{ ...t, monthKey: thisMonth }];
-    }
-    return [t];
-  });
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -431,8 +405,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ...task,
             id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             status: "todo",
-            day: task.bucket === "daily" ? dayKey(new Date()) : undefined,
+            day: task.bucket === "daily" ? task.day ?? dayKey(new Date()) : undefined,
             archived: false,
+            repeatEvery: migrateRepeatEvery(task.repeatEvery, false),
             createdAt: Date.now(),
           },
           ...s.tasks,
@@ -503,12 +478,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setTaskRepeat: AppContextValue["setTaskRepeat"] = useCallback((id, repeat) => {
+  const setTaskRepeatEvery: AppContextValue["setTaskRepeatEvery"] = useCallback((id, repeatEvery) => {
     setState((s) => {
       if (!s) return s;
       return {
         ...s,
-        tasks: s.tasks.map((t) => (t.id === id ? { ...t, repeat } : t)),
+        tasks: s.tasks.map((t) =>
+          t.id === id ? { ...t, repeatEvery: migrateRepeatEvery(repeatEvery, false) } : t
+        ),
       };
     });
   }, []);
@@ -562,7 +539,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             day,
             archived: false,
             hasTimer: src.hasTimer,
-            repeat: src.repeat,
+            repeatEvery: src.repeatEvery,
             createdAt: Date.now(),
           },
           ...s.tasks.map((t) => (t.id === id ? { ...t, archived: true } : t)),
@@ -574,9 +551,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateTask: AppContextValue["updateTask"] = useCallback((id, patch) => {
     setState((s) => {
       if (!s) return s;
+      const today = dayKey(new Date());
       return {
         ...s,
-        tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        tasks: s.tasks.map((t) => {
+          if (t.id !== id) return t;
+          // A daily task may be pushed into the future but never back into the
+          // past — history is evidence, not something an edit can rewrite.
+          if (t.bucket === "daily" && patch.day && patch.day < today) return t;
+          const next = { ...t, ...patch };
+          if ("repeatEvery" in patch) {
+            next.repeatEvery = migrateRepeatEvery(patch.repeatEvery, false);
+          }
+          return next;
+        }),
       };
     });
   }, []);
@@ -951,7 +939,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       toggleTask,
       removeTask,
       setTaskStatus,
-      setTaskRepeat,
+      setTaskRepeatEvery,
       saveSession,
       updateSettings,
       reAddTask,
@@ -983,7 +971,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     toggleTask,
     removeTask,
     setTaskStatus,
-    setTaskRepeat,
+    setTaskRepeatEvery,
     saveSession,
     updateSettings,
     reAddTask,
