@@ -74,7 +74,7 @@ export function IntervalStepper({
             onClick={() => onChange(n)}
             aria-pressed={value === n}
             className={cn(
-              "pill pressable text-[12px] font-medium transition-colors",
+              "pressable rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors",
               value === n
                 ? "border-accent/60 bg-accent/15 text-accent"
                 : "border-border bg-surface-elevated text-secondary hover:text-primary"

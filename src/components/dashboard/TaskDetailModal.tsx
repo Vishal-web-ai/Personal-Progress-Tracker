@@ -61,7 +61,11 @@ export function TaskDetailModal({
             type="button"
             role="switch"
             aria-checked={repeatEvery > 0}
-            aria-label="Repeat this task every day"
+            aria-label={
+              repeatEvery > 0
+                ? `Repeat every ${repeatEvery} ${repeatEvery === 1 ? "day" : "days"}`
+                : "One-time task"
+            }
             onClick={() => setTaskRepeatEvery(task.id, repeatEvery > 0 ? undefined : 1)}
             className="pressable flex w-full items-center justify-between rounded-[12px] border border-border bg-surface-elevated px-3.5 py-2.5"
           >

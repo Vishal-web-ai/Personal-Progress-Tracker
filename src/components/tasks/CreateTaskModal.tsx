@@ -400,7 +400,7 @@ export function CreateTaskModal({
                     }}
                     aria-pressed={dateChoice === value}
                     className={cn(
-                      "pill pressable justify-center text-[13px] font-medium transition-colors",
+                      "pressable flex items-center justify-center rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors",
                       dateChoice === value
                         ? "border-accent/60 bg-accent/15 text-accent"
                         : "border-border bg-surface-elevated text-secondary hover:text-primary"
@@ -427,7 +427,11 @@ export function CreateTaskModal({
                 type="button"
                 role="switch"
                 aria-checked={repeats}
-                aria-label="Repeat this task"
+                aria-label={
+                  repeats
+                    ? `Repeat every ${repeatEvery} ${repeatEvery === 1 ? "day" : "days"}`
+                    : "One-time task"
+                }
                 onClick={() => setRepeats(!repeats)}
                 className="pressable flex w-full items-center justify-between rounded-[12px] border border-border bg-surface-elevated px-3.5 py-2.5"
               >
