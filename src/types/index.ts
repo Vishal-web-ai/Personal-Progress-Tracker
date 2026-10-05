@@ -22,8 +22,10 @@ export interface Task {
   completedAt?: number;
   createdAt: number;
   hasTimer?: boolean;
-  /** Daily tasks only: always reappear on the next day's list on their own. */
-  repeat?: boolean;
+  /** Daily only: repeat cadence in days. 1 = every day (the legacy `repeat: true`).
+   *  Absent or 0 = one-time task. Every occurrence is its own record and advances
+   *  its own `day` by exactly this step, so a series needs no separate anchor. */
+  repeatEvery?: number;
 }
 
 export type TimerMode = "stopwatch" | "focus_target";
