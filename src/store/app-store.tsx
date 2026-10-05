@@ -12,7 +12,7 @@ import React, {
 import type { Area, Goal, GoalProgressPoint, Note, Phase, PhaseRetrospective, PhaseTask, Task, TaskBucket, WorkSession } from "@/types";
 import { AREAS } from "@/data/initial";
 import { dayKey, dayKeyFor, monthKey, weekRange } from "@/lib/time";
-import { repeatStep, rolloverTasks } from "@/lib/tasks";
+import { rolloverTasks } from "@/lib/tasks";
 import { toMinutes } from "@/lib/utils";
 import { readSavedAt, readSnapshot, writeSnapshot } from "@/lib/db";
 

@@ -2,10 +2,10 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarRange, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarRange } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { dayKey, formatWeekSpan } from "@/lib/time";
-import { MonthCalendar, monthOf } from "@/components/ui/MonthCalendar";
+import { formatWeekSpan } from "@/lib/time";
+import { MonthCalendar } from "@/components/ui/MonthCalendar";
 
 const PANEL_WIDTH = 284;
 
@@ -37,7 +37,7 @@ export function WeekPicker({
     const left = Math.max(8, Math.min(r.left, window.innerWidth - PANEL_WIDTH - 8));
     setPos({ top: r.bottom + 6, left });
     setOpen(true);
-  }, [value]);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
