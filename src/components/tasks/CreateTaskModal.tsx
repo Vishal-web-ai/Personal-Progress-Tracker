@@ -10,10 +10,14 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input, Select, Textarea } from "@/components/ui/Form";
 import { WeekPicker } from "@/components/ui/WeekPicker";
 import { MonthPicker } from "@/components/ui/MonthPicker";
+import { DayPicker } from "@/components/ui/DayPicker";
 import { TaskIcon } from "@/components/ui/TaskIcon";
+import { IntervalStepper } from "@/components/tasks/IntervalStepper";
 import { cn } from "@/lib/utils";
-import { dayKeyFor, monthKey } from "@/lib/time";
+import { addDaysKey, dayKeyFor, monthKey } from "@/lib/time";
 import { Check, Plus, Repeat } from "lucide-react";
+
+type DateChoice = "today" | "tomorrow" | "pick";
 
 const PRIORITIES: { value: Priority; label: string; dot: string }[] = [
   { value: "high", label: "High", dot: "var(--priority-high)" },
@@ -58,7 +62,10 @@ export function CreateTaskModal({
   const [icon, setIcon] = useState("cloud");
   const [description, setDescription] = useState("");
   const [hasTimer, setHasTimer] = useState(false);
-  const [repeat, setRepeat] = useState(false);
+  const [repeats, setRepeats] = useState(false);
+  const [repeatEvery, setRepeatEvery] = useState(1);
+  const [dateChoice, setDateChoice] = useState<DateChoice>("today");
+  const [day, setDay] = useState<string>(dayKeyFor());
   const [isAddingArea, setIsAddingArea] = useState(false);
   const [newAreaName, setNewAreaName] = useState("");
   const [areaError, setAreaError] = useState<string | null>(null);
@@ -97,7 +104,10 @@ export function CreateTaskModal({
         setIcon(editTask.icon);
         setDescription(editTask.description ?? "");
         setHasTimer(editTask.hasTimer !== false);
-        setRepeat(Boolean(editTask.repeat));
+        setRepeats(Boolean(editTask.repeatEvery));
+        setRepeatEvery(editTask.repeatEvery ?? 1);
+        setDay(editTask.day ?? dayKeyFor());
+        setDateChoice(editTask.day && editTask.day > dayKeyFor() ? "pick" : "today");
       } else {
         setTitle("");
         setAreaId(defaultAreaId ?? allAreas[0]?.id ?? AREAS[0].id);
@@ -108,7 +118,10 @@ export function CreateTaskModal({
         setIcon("cloud");
         setDescription("");
         setHasTimer(false);
-        setRepeat(false);
+        setRepeats(false);
+        setRepeatEvery(1);
+        setDay(dayKeyFor());
+        setDateChoice("today");
       }
       setIsAddingArea(false);
       setNewAreaName("");
@@ -144,7 +157,8 @@ export function CreateTaskModal({
       weekStart: bucket === "weekly" ? weekStart || dayKeyFor() : undefined,
       monthKey: bucket === "monthly" ? taskMonth || monthKey(new Date()) : undefined,
       hasTimer,
-      repeat: bucket === "daily" && repeat ? true : undefined,
+      day: bucket === "daily" ? day : undefined,
+      repeatEvery: bucket === "daily" && repeats ? repeatEvery : undefined,
     };
     if (editTask) {
       updateTask(editTask.id, patch);
@@ -365,39 +379,90 @@ export function CreateTaskModal({
         </Field>
 
         {bucket === "daily" && (
-          <Field label="Repeat">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={repeat}
-              aria-label="Repeat this task every day"
-              onClick={() => setRepeat(!repeat)}
-              className="pressable flex w-full items-center justify-between rounded-[12px] border border-border bg-surface-elevated px-3.5 py-2.5"
-            >
-              <span className="flex items-center gap-2 text-[14px] text-primary">
-                {repeat ? "Repeats every day" : "Only today"}
-                {repeat && <Repeat size={14} className="text-accent" />}
-              </span>
-              <span
-                className={cn(
-                  "relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-150",
-                  repeat
-                    ? "border-accent/60 bg-accent/15"
-                    : "border-border bg-surface-soft"
-                )}
+          <>
+            <Field label="Date">
+              <div className="grid grid-cols-3 gap-2" role="group" aria-label="Schedule for">
+                {(
+                  [
+                    ["today", "Today"],
+                    ["tomorrow", "Tomorrow"],
+                    ["pick", "Pick date"],
+                  ] as [DateChoice, string][]
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setDateChoice(value);
+                      if (value === "today") setDay(dayKeyFor());
+                      if (value === "tomorrow") setDay(addDaysKey(dayKeyFor(), 1));
+                      if (value === "pick" && day <= dayKeyFor()) setDay(addDaysKey(dayKeyFor(), 1));
+                    }}
+                    aria-pressed={dateChoice === value}
+                    className={cn(
+                      "pill pressable justify-center text-[13px] font-medium transition-colors",
+                      dateChoice === value
+                        ? "border-accent/60 bg-accent/15 text-accent"
+                        : "border-border bg-surface-elevated text-secondary hover:text-primary"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {dateChoice === "pick" && (
+                <div className="mt-2">
+                  <DayPicker
+                    value={day}
+                    onChange={setDay}
+                    minDay={dayKeyFor()}
+                    label="Pick a date"
+                  />
+                </div>
+              )}
+            </Field>
+
+            <Field label="Repeat">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={repeats}
+                aria-label="Repeat this task"
+                onClick={() => setRepeats(!repeats)}
+                className="pressable flex w-full items-center justify-between rounded-[12px] border border-border bg-surface-elevated px-3.5 py-2.5"
               >
+                <span className="flex items-center gap-2 text-[14px] text-primary">
+                  {repeats ? `Every ${repeatEvery} ${repeatEvery === 1 ? "day" : "days"}` : "One time"}
+                  {repeats && <Repeat size={14} className="text-accent" />}
+                </span>
                 <span
                   className={cn(
-                    "absolute left-0.5 top-0.5 h-[22px] w-[22px] rounded-full transition-transform duration-150",
-                    repeat ? "translate-x-5 bg-accent" : "bg-muted"
+                    "relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-150",
+                    repeats
+                      ? "border-accent/60 bg-accent/15"
+                      : "border-border bg-surface-soft"
                   )}
-                />
-              </span>
-            </button>
-            <p className="mt-1 text-[12px] text-muted">
-              This daily task always appears again in the next day&apos;s list on its own.
-            </p>
-          </Field>
+                >
+                  <span
+                    className={cn(
+                      "absolute left-0.5 top-0.5 h-[22px] w-[22px] rounded-full transition-transform duration-150",
+                      repeats ? "translate-x-5 bg-accent" : "bg-muted"
+                    )}
+                  />
+                </span>
+              </button>
+              {repeats && (
+                <div className="mt-2.5">
+                  <IntervalStepper value={repeatEvery} onChange={setRepeatEvery} startDay={day} />
+                </div>
+              )}
+              {!repeats && (
+                <p className="mt-1 text-[12px] text-muted">
+                  One-time task: it archives itself once its date passes.
+                </p>
+              )}
+            </Field>
+          </>
         )}
       </div>
     </Modal>

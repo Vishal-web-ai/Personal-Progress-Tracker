@@ -84,12 +84,17 @@ export function TaskRow({
             </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-[13px] leading-[18px] text-secondary">
               <span className="truncate">{task.areaName}</span>
-              {task.repeat && !done && (
+              {task.repeatEvery && task.repeatEvery > 0 && !done && (
                 <span
                   className="flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-1.5 py-px text-[10px] text-accent"
-                  title="Repeats daily"
+                  title={
+                    task.repeatEvery === 1
+                      ? "Repeats daily"
+                      : `Repeats every ${task.repeatEvery} days`
+                  }
                 >
                   <Repeat size={10} strokeWidth={2.4} />
+                  {task.repeatEvery > 1 && <span className="tabular-nums">{task.repeatEvery}</span>}
                 </span>
               )}
             </div>
