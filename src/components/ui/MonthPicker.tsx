@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addMonthsKey, monthKey, monthLabel } from "@/lib/time";
+import { useAnchoredPopover } from "@/components/ui/useAnchoredPopover";
 
 const PANEL_WIDTH = 220;
 
@@ -19,46 +20,14 @@ export function MonthPicker({
   onChange: (key: string) => void;
   className?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const { open, triggerRef, panelRef, close, openPanel: show, panelStyle } =
+    useAnchoredPopover<HTMLButtonElement, HTMLDivElement>();
   const [view, setView] = useState<string>(value || monthKey(new Date()));
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-
-  const close = useCallback(() => {
-    setOpen(false);
-    setPos(null);
-  }, []);
 
   const openPanel = useCallback(() => {
-    const el = triggerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const left = Math.max(8, Math.min(r.left, window.innerWidth - PANEL_WIDTH - 8));
-    setPos({ top: r.bottom + 6, left });
     setView(value || monthKey(new Date()));
-    setOpen(true);
-  }, [value]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (e: MouseEvent | TouchEvent) => {
-      const t = e.target as Node;
-      if (panelRef.current?.contains(t) || triggerRef.current?.contains(t)) return;
-      close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("touchstart", onPointer);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("touchstart", onPointer);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, close]);
+    show();
+  }, [show, value]);
 
   const thisMonth = monthKey(new Date());
   const isThisMonth = thisMonth === view;
@@ -78,7 +47,9 @@ export function MonthPicker({
         onClick={() => (open ? close() : openPanel())}
         className={cn(
           "pressable flex items-center justify-center rounded-[12px] border bg-surface-elevated px-2.5 py-2 text-center text-[13px] text-primary outline-none transition-colors duration-150 min-w-[100px]",
-          open ? "border-accent/60 ring-2 ring-accent/20" : "border-border focus:border-accent/60 focus:ring-2 focus:ring-accent/20",
+          open
+            ? "border-accent/60 ring-2 ring-accent/20"
+            : "border-border focus:border-accent/60 focus:ring-2 focus:ring-accent/20",
           className
         )}
       >
@@ -86,14 +57,13 @@ export function MonthPicker({
       </button>
 
       {open &&
-        pos &&
         createPortal(
           <div
             ref={panelRef}
             role="dialog"
             aria-label="Pick a month"
             className="dropdown-in card-shadow-sm fixed z-[60] rounded-[14px] border border-border bg-surface-elevated p-3"
-            style={{ top: pos.top, left: pos.left, width: PANEL_WIDTH }}
+            style={{ width: PANEL_WIDTH, ...panelStyle }}
           >
             <div className="grid grid-cols-[1fr_auto_1fr] items-center">
               <button

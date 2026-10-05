@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dayKey, isToday, MONTHS, WEEKDAYS_SHORT } from "@/lib/time";
+import { useAnchoredPopover } from "@/components/ui/useAnchoredPopover";
 
 const PANEL_WIDTH = 264;
-const PANEL_HEIGHT_EST = 340;
 
 function fmtDDMMYYYY(ts: number): string {
   const d = new Date(ts);
@@ -39,52 +39,18 @@ export function DateField({
   className,
   disabled,
 }: DateFieldProps) {
-  const [open, setOpen] = useState(false);
+  const { open, triggerRef, panelRef, close, openPanel: show, panelStyle } =
+    useAnchoredPopover<HTMLButtonElement, HTMLDivElement>();
   const [view, setView] = useState<Date>(() => {
     const base = value ? new Date(value) : new Date();
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-
-  const close = useCallback(() => {
-    setOpen(false);
-    setPos(null);
-  }, []);
 
   const openPanel = useCallback(() => {
-    const el = triggerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const left = Math.max(8, Math.min(r.left, window.innerWidth - PANEL_WIDTH - 8));
-    let top = r.bottom + 6;
-    if (top + PANEL_HEIGHT_EST > window.innerHeight) top = Math.max(8, r.top - PANEL_HEIGHT_EST - 6);
-    setPos({ top, left });
     const base = value ? new Date(value) : new Date();
     setView(new Date(base.getFullYear(), base.getMonth(), 1));
-    setOpen(true);
-  }, [value]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (e: MouseEvent | TouchEvent) => {
-      const t = e.target as Node;
-      if (panelRef.current?.contains(t) || triggerRef.current?.contains(t)) return;
-      close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("touchstart", onPointer);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("touchstart", onPointer);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, close]);
+    show();
+  }, [show, value]);
 
   const year = view.getFullYear();
   const month = view.getMonth();
@@ -134,14 +100,13 @@ export function DateField({
       </button>
 
       {open &&
-        pos &&
         createPortal(
           <div
             ref={panelRef}
             role="dialog"
             aria-label="Pick a date"
             className="dropdown-in card-shadow-sm fixed z-[60] rounded-[14px] border border-border bg-surface-elevated p-2.5"
-            style={{ top: pos.top, left: pos.left, width: PANEL_WIDTH }}
+            style={{ width: PANEL_WIDTH, ...panelStyle }}
           >
             <div className="grid grid-cols-[1fr_auto_1fr] items-center px-1">
               <button
