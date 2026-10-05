@@ -14,6 +14,16 @@ export function addDaysKey(key: string, delta: number): string {
   return dayKey(new Date(y, m - 1, d + delta));
 }
 
+export function parseDayKey(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** Whole days from `a` to `b`, signed. */
+export function daysBetweenKeys(a: string, b: string): number {
+  return Math.round((startOfDay(parseDayKey(b)) - startOfDay(parseDayKey(a))) / 86_400_000);
+}
+
 /** Week of the month (1–5), Monday-based. Week 1 is the one containing the 1st. */
 export function weekOfMonth(d: Date): number {
   const first = new Date(d.getFullYear(), d.getMonth(), 1);
@@ -129,8 +139,8 @@ export function formatDayLabel(ts: number): string {
 
 export function formatFullDate(ts: number): string {
   const d = new Date(ts);
-  return `Mon, ${d.getDate()} ${
-    d.toLocaleString("en-US", { month: "short" })
+  return `${WEEKDAYS_SHORT[d.getDay() === 0 ? 6 : d.getDay() - 1]}, ${d.getDate()} ${
+    MONTHS[d.getMonth()].slice(0, 3)
   } ${d.getFullYear()}`;
 }
 
