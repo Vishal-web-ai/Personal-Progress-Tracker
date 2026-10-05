@@ -1,5 +1,6 @@
 import type { Task, TaskBucket } from "@/types";
 import { addDaysKey, dayKey, monthKey, startOfDay, startOfWeek } from "@/lib/time";
+import { isTodayTask } from "@/lib/tasks";
 
 export interface BucketProgress {
   done: number;
@@ -14,11 +15,10 @@ function progressOf(list: Task[]): BucketProgress {
 }
 
 export function bucketProgress(tasks: Task[], bucket: TaskBucket): BucketProgress {
-  const today = bucket === "daily" ? dayKey(new Date()) : undefined;
+  const today = dayKey(new Date());
   return progressOf(
-    tasks.filter(
-      (t) =>
-        t.bucket === bucket && !t.archived && (today === undefined || t.day === today)
+    tasks.filter((t) =>
+      bucket === "daily" ? isTodayTask(t, today) : t.bucket === bucket && !t.archived
     )
   );
 }

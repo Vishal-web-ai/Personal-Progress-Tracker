@@ -9,7 +9,9 @@ import { TaskRow } from "@/components/dashboard/TaskRow";
 import { TaskHistory } from "@/components/dashboard/TaskHistory";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CreateTaskModal } from "@/components/tasks/CreateTaskModal";
-import { formatFullDate, dayKey } from "@/lib/time";
+import { formatFullDate } from "@/lib/time";
+import { isTodayTask } from "@/lib/tasks";
+import { UpcomingTasks } from "@/components/dashboard/UpcomingTasks";
 import { cn } from "@/lib/utils";
 
 const ORDER: Priority[] = ["high", "medium", "low"];
@@ -18,10 +20,11 @@ export function TaskList({ compact }: { compact?: boolean }) {
   const { tasks } = useApp();
   const [collapsed, setCollapsed] = useState<Set<Priority>>(new Set());
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<Task | undefined>(undefined);
   const [now] = useState(() => Date.now());
 
   const sorted = [...tasks]
-    .filter((t) => t.bucket === "daily" && !t.archived && t.day === dayKey(new Date()))
+    .filter((t) => isTodayTask(t))
     .sort((a, b) => {
       const order = { high: 0, medium: 1, low: 2 } as const;
       if (order[a.priority] !== order[b.priority]) return order[a.priority] - order[b.priority];
@@ -103,9 +106,25 @@ export function TaskList({ compact }: { compact?: boolean }) {
         </div>
       )}
 
+      <UpcomingTasks
+        tasks={tasks}
+        onEdit={(t) => {
+          setEditing(t);
+          setCreateOpen(true);
+        }}
+      />
+
       <TaskHistory mode="yesterday" />
 
-      <CreateTaskModal open={createOpen} onClose={() => setCreateOpen(false)} defaultBucket="daily" />
+      <CreateTaskModal
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          setEditing(undefined);
+        }}
+        defaultBucket="daily"
+        editTask={editing}
+      />
     </section>
   );
 }

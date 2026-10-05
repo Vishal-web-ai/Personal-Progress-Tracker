@@ -38,6 +38,17 @@ export function occurrenceDates(start: string, step: number, count: number): str
   return out;
 }
 
+/** "Tomorrow" / "In 4 days" / "" once the date is far enough out that a plain
+ *  date reads better. Both upcoming surfaces share this so the wording and the
+ *  cutoff never drift apart. */
+export function relativeDayLabel(today: string, day: string): string {
+  const diff = daysBetweenKeys(today, day);
+  if (diff <= 0) return "";
+  if (diff === 1) return "Tomorrow";
+  if (diff < 7) return `In ${diff} days`;
+  return "";
+}
+
 /** Archive daily tasks whose calendar day is behind today, rollout incomplete
  *  monthly tasks forward to the current month. A repeating task keeps every
  *  occurrence it passed — each archived with its own status, so a done day and

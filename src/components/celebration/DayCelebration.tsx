@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { ConfettiRain } from "@/components/celebration/CelebrationConfetti";
 import { currentStreakDays } from "@/lib/metrics";
+import { isTodayTask } from "@/lib/tasks";
 import { playCelebration } from "@/lib/sounds";
 import { dayKey, isSameDay, plural } from "@/lib/time";
 
@@ -27,9 +28,7 @@ export function DayCelebration() {
 
   const nowTs = new Date();
   const today = dayKey(nowTs);
-  const dailyToday = tasks.filter(
-    (t) => t.bucket === "daily" && !t.archived && t.day === today
-  );
+  const dailyToday = tasks.filter((t) => isTodayTask(t, today));
   const total = dailyToday.length;
   const done = dailyToday.filter((t) => t.status === "done").length;
   const allDone = total > 0 && done === total;

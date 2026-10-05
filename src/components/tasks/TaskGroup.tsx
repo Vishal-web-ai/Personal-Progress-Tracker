@@ -6,7 +6,8 @@ import { useApp } from "@/store/app-store";
 import type { TaskBucket } from "@/types";
 import { sortByPriority } from "@/data/initial";
 import { bucketProgress } from "@/lib/metrics";
-import { dayKey, formatWeekSpan, monthKey, monthLabel } from "@/lib/time";
+import { isTodayTask } from "@/lib/tasks";
+import { formatWeekSpan, monthKey, monthLabel } from "@/lib/time";
 import { TaskRow } from "@/components/dashboard/TaskRow";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CreateTaskModal } from "@/components/tasks/CreateTaskModal";
@@ -32,7 +33,9 @@ export function TaskGroup({
   };
 
   const items = sortByPriority(
-    tasks.filter((t) => t.bucket === bucket && !t.archived && (bucket !== "daily" || t.day === dayKey(new Date())))
+    tasks.filter((t) =>
+      bucket === "daily" ? isTodayTask(t) : t.bucket === bucket && !t.archived
+    )
   );
   const { done, total, pct } = bucketProgress(tasks, bucket);
   const isWeekly = bucket === "weekly";
