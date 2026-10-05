@@ -8,14 +8,12 @@ import { relativeDayLabel, upcomingTasks } from "@/lib/tasks";
 import { UpcomingTaskRow } from "@/components/dashboard/UpcomingTaskRow";
 import { cn } from "@/lib/utils";
 
-function dayHeading(day: string, today: string): string {
-  const relative = relativeDayLabel(today, day);
-  const date = parseDayKey(day).toLocaleDateString("en-US", {
+function dateLabel(day: string): string {
+  return parseDayKey(day).toLocaleDateString("en-US", {
     weekday: "short",
     day: "numeric",
     month: "short",
   });
-  return relative ? `${date} · ${relative}` : date;
 }
 
 /** Collapsed summary of everything scheduled ahead. Expands into a date-grouped
@@ -62,12 +60,13 @@ export function UpcomingTasks({ tasks, onEdit }: { tasks: Task[]; onEdit: (task:
           <div className="space-y-3 px-3 pb-3">
             {Object.entries(grouped).map(([day, dayTasks]) => (
               <div key={day}>
-                <p className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                  {dayHeading(day, today)}
+                <p className="flex items-baseline justify-between gap-3 px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                  <span>{relativeDayLabel(today, day)}</span>
+                  <span>{dateLabel(day)}</span>
                 </p>
                 <div className="space-y-2">
                   {dayTasks.map((t) => (
-                    <UpcomingTaskRow key={t.id} task={t} today={today} onEdit={() => onEdit(t)} />
+                    <UpcomingTaskRow key={t.id} task={t} onEdit={() => onEdit(t)} />
                   ))}
                 </div>
               </div>

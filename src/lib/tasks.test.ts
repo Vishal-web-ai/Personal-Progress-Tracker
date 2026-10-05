@@ -4,6 +4,7 @@ import {
   isTodayTask,
   isTaskOnDay,
   occurrenceDates,
+  relativeDayLabel,
   repeatStep,
   rolloverTasks,
   upcomingTasks,
@@ -259,5 +260,34 @@ describe("rolloverTasks — other buckets", () => {
     });
     const out = rolloverTasks([m], "2026-10-05");
     expect(out[0].monthKey).toBe("2020-01");
+  });
+});
+
+describe("relativeDayLabel", () => {
+  it("labels tomorrow", () => {
+    expect(relativeDayLabel("2026-10-05", "2026-10-06")).toBe("Tomorrow");
+  });
+
+  it("counts days ahead", () => {
+    expect(relativeDayLabel("2026-10-05", "2026-10-07")).toBe("In 2 days");
+    expect(relativeDayLabel("2026-10-05", "2026-10-09")).toBe("In 4 days");
+    expect(relativeDayLabel("2026-10-05", "2026-10-11")).toBe("In 6 days");
+  });
+
+  it("keeps a label past a week, so the heading is never left empty", () => {
+    expect(relativeDayLabel("2026-10-05", "2026-10-15")).toBe("In 10 days");
+    expect(relativeDayLabel("2026-10-05", "2027-01-01")).toBe("In 88 days");
+  });
+
+  it("returns empty for today", () => {
+    expect(relativeDayLabel("2026-10-05", "2026-10-05")).toBe("");
+  });
+
+  it("returns empty for a past day", () => {
+    expect(relativeDayLabel("2026-10-05", "2026-10-04")).toBe("");
+  });
+
+  it("crosses a year boundary", () => {
+    expect(relativeDayLabel("2026-12-30", "2027-01-03")).toBe("In 4 days");
   });
 });

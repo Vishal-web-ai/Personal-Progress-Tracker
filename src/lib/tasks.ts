@@ -38,15 +38,17 @@ export function occurrenceDates(start: string, step: number, count: number): str
   return out;
 }
 
-/** "Tomorrow" / "In 4 days" / "" once the date is far enough out that a plain
- *  date reads better. Both upcoming surfaces share this so the wording and the
- *  cutoff never drift apart. */
+/** "Tomorrow" / "In 4 days" for a future day, "" otherwise.
+ *
+ *  Used on the Upcoming group heading, where it sits opposite a plain date — so
+ *  it can say the relative distance at any range without ever repeating the
+ *  date it is paired with. Returns "" for today or the past, where a relative
+ *  label would mislead. */
 export function relativeDayLabel(today: string, day: string): string {
   const diff = daysBetweenKeys(today, day);
   if (diff <= 0) return "";
   if (diff === 1) return "Tomorrow";
-  if (diff < 7) return `In ${diff} days`;
-  return "";
+  return `In ${diff} days`;
 }
 
 /** Archive daily tasks whose calendar day is behind today, rollout incomplete
