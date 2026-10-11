@@ -113,7 +113,9 @@ export function CompletionBarChart({
                 const x = xFor(i);
                 const isCurrent = i === data.length - 1;
                 const isActive = tooltipIndex === i;
-                const hasData = d.hasData;
+                // pct is null when nothing was scheduled that period (e.g. only
+                // focus time) — drawing that as a 0% bar invented a "failed day".
+                const showBar = d.hasData && d.pct != null;
 
                 const labelW = d.label.length * 5.5;
                 const labelX = x + BAR_W / 2;
@@ -143,7 +145,7 @@ export function CompletionBarChart({
                       strokeWidth={1.5}
                     />
 
-                    {hasData && (
+                    {showBar && (
                       <rect
                         key={`${animateKey}-${d.key}-rate`}
                         x={x}

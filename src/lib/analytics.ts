@@ -1,5 +1,5 @@
 import type { Task, WorkSession } from "@/types";
-import { startOfDay, startOfWeek, startOfMonth, WEEKDAYS_SHORT, MONTHS } from "@/lib/time";
+import { startOfDay, startOfWeek, startOfMonth, parseDayKey, WEEKDAYS_SHORT, MONTHS } from "@/lib/time";
 
 export type AnalyticsPeriod = "daily" | "weekly" | "monthly";
 
@@ -8,8 +8,8 @@ export interface PeriodPoint {
   start: number; // period start timestamp
   label: string; // short x-axis label
   title: string; // full label (tooltip)
-  planned: number; // tasks created in this period
-  completed: number; // tasks completed in this period
+  planned: number; // occurrences scheduled in this period
+  completed: number; // occurrences of this period marked done
   focusMinutes: number; // session active time in this period
   pct: number | null; // completion rate (0-100), null when nothing was planned
   /** True only when the period recorded real activity. Charts must draw
@@ -49,7 +49,31 @@ function makePoint(
   };
 }
 
-/** Buckets every task/session by the start timestamp of its day. */
+/** Calendar-day arithmetic. Fixed 24h stepping drifts across DST, so bucket
+ *  keys (local midnights from `startOfDay`) stop matching point keys and days
+ *  silently render as zero. */
+function addDaysTs(ts: number, days: number): number {
+  const d = new Date(ts);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days).getTime();
+}
+
+/** The day an occurrence belongs to, matching what the dashboard shows:
+ *  daily → its `day`, weekly → its `weekStart` (lands on the Monday), monthly
+ *  → the 1st of its month. One anchor per occurrence, so history counts each
+ *  planned unit exactly once — createdAt-based counting inflated the creation
+ *  day with every repeat fan-out copy and credited completions to days that
+ *  had no plan. */
+function scheduledDayStart(t: Task): number | null {
+  if (t.bucket === "weekly" && t.weekStart) return startOfDay(parseDayKey(t.weekStart));
+  if (t.bucket === "monthly" && t.monthKey) {
+    const [y, m] = t.monthKey.split("-").map(Number);
+    if (Number.isInteger(y) && Number.isInteger(m)) return startOfDay(new Date(y, m - 1, 1));
+    return null;
+  }
+  return t.day ? startOfDay(parseDayKey(t.day)) : null;
+}
+
+/** Buckets every occurrence/session into day-start keys. */
 function bucketByDay(
   tasks: Task[],
   sessions: WorkSession[]
@@ -63,8 +87,10 @@ function bucketByDay(
   };
 
   for (const t of tasks) {
-    if (t.createdAt) touch(planned, startOfDay(new Date(t.createdAt)), 1);
-    if (t.completedAt) touch(completed, startOfDay(new Date(t.completedAt)), 1);
+    const dayStart = scheduledDayStart(t);
+    if (dayStart === null) continue;
+    touch(planned, dayStart, 1);
+    if (t.status === "done") touch(completed, dayStart, 1);
   }
 
   for (const s of sessions) {
@@ -86,8 +112,6 @@ export interface PeriodSet {
   previous: PeriodPoint | null;
 }
 
-const DAY = 86400000;
-
 /**
  * Build 7 data points (Mon–Sun) for a specific week.
  * `weekOffset` 0 = this week, -1 = last week, etc.
@@ -98,14 +122,14 @@ export function buildWeekDays(
   sessions: WorkSession[],
   now: number = Date.now()
 ): { points: PeriodPoint[]; title: string } {
-  const monday = startOfWeek(new Date(now + weekOffset * 7 * DAY));
-  const sunday = monday + 6 * DAY;
+  const monday = startOfWeek(new Date(addDaysTs(now, weekOffset * 7)));
+  const sunday = addDaysTs(monday, 6);
 
   const { planned, completed, focus } = bucketByDay(tasks, sessions);
 
   const points: PeriodPoint[] = [];
   for (let i = 0; i < 7; i++) {
-    const dayStart = monday + i * DAY;
+    const dayStart = addDaysTs(monday, i);
     const d = new Date(dayStart);
     points.push(
       makePoint(
@@ -156,17 +180,27 @@ export function buildMonthWeeks(
   const points: PeriodPoint[] = [];
   const firstMonday = startOfWeek(new Date(first));
   // A month that doesn't begin on a Monday has its `startOfWeek` in the previous
-  // month. Skip that block and start at the first Monday actually inside the month.
-  let weekStart = firstMonday < first ? firstMonday + 7 * DAY : firstMonday;
-  let weekNumber = 0;
+  // month. The stub days fold into the first block so occurrences anchored there
+  // (e.g. a monthly task on the 1st) are still counted; the x-axis stays aligned
+  // to full in-month weeks.
+  const blockStarts: number[] = [];
+  let cursor = firstMonday < first ? addDaysTs(firstMonday, 7) : firstMonday;
+  for (; cursor < nextMonth; cursor = addDaysTs(cursor, 7)) blockStarts.push(cursor);
 
-  for (; weekStart < nextMonth; weekStart += 7 * DAY) {
-    weekNumber += 1;
+  for (let i = 0; i < blockStarts.length; i++) {
+    const weekStart = blockStarts[i];
+
+    const days: number[] = [];
+    // Block 0 also covers the month's leading days before the first in-month Monday.
+    if (i === 0) {
+      for (let d = first; d < weekStart; d = addDaysTs(d, 1)) days.push(d);
+    }
+    for (let d = weekStart; d < addDaysTs(weekStart, 7); d = addDaysTs(d, 1)) days.push(d);
 
     let plannedCount = 0;
     let completedCount = 0;
     let focusMinutes = 0;
-    for (let d = weekStart; d < weekStart + 7 * DAY; d += DAY) {
+    for (const d of days) {
       // Days past "now" haven't happened yet — never count them.
       if (d > now) break;
       plannedCount += planned.get(d) ?? 0;
@@ -174,10 +208,9 @@ export function buildMonthWeeks(
       focusMinutes += focus.get(d) ?? 0;
     }
 
-    // Clip the week to the month for the tooltip's date range. The leading stub is
-    // gone, so only the trailing week can be clipped now.
+    // Clip the week to the month for the tooltip's date range.
     const overlapStart = Math.max(weekStart, first);
-    const overlapEnd = Math.min(weekStart + 6 * DAY, nextMonth - 1);
+    const overlapEnd = Math.min(addDaysTs(weekStart, 6), nextMonth - 1);
     const from = new Date(overlapStart);
     const to = new Date(overlapEnd);
     const sameMonth = from.getMonth() === to.getMonth();
@@ -188,7 +221,7 @@ export function buildMonthWeeks(
     points.push(
       makePoint(
         weekStart,
-        `Week ${weekNumber}`,
+        `Week ${i + 1}`,
         `${range}, ${from.getFullYear()}`,
         plannedCount,
         completedCount,
@@ -232,8 +265,10 @@ function bucketByPeriod(
   };
 
   for (const t of tasks) {
-    if (t.createdAt) touch(planned, bucketStart(period, t.createdAt), 1);
-    if (t.completedAt) touch(completed, bucketStart(period, t.completedAt), 1);
+    const dayStart = scheduledDayStart(t);
+    if (dayStart === null) continue;
+    touch(planned, bucketStart(period, dayStart), 1);
+    if (t.status === "done") touch(completed, bucketStart(period, dayStart), 1);
   }
 
   for (const s of sessions) {
@@ -249,8 +284,8 @@ function bucketByPeriod(
 }
 
 function nextPeriod(period: AnalyticsPeriod, start: number): number {
-  if (period === "daily") return start + DAY;
-  if (period === "weekly") return start + 7 * DAY;
+  if (period === "daily") return addDaysTs(start, 1);
+  if (period === "weekly") return addDaysTs(start, 7);
   const d = new Date(start);
   return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
 }
@@ -259,7 +294,7 @@ function periodLabel(period: AnalyticsPeriod, start: number): { label: string; t
   const d = new Date(start);
   if (period === "daily") {
     const today = startOfDay(new Date());
-    const yesterday = today - DAY;
+    const yesterday = addDaysTs(today, -1);
     if (start === today) return { label: "Today", title: "Today" };
     if (start === yesterday) return { label: "Yesterday", title: "Yesterday" };
     return {
@@ -268,7 +303,7 @@ function periodLabel(period: AnalyticsPeriod, start: number): { label: string; t
     };
   }
 if (period === "weekly") {
-     const end = new Date(start + 6 * DAY);
+     const end = new Date(addDaysTs(start, 6));
      const startMonth = d.getMonth();
      const endMonth = end.getMonth();
      const startDay = d.getDate();
@@ -293,12 +328,13 @@ if (period === "weekly") {
 }
 
 /**
- * Aggregate every task into the chosen historical periods — "planned" from
- * `createdAt`, "completed" from `completedAt`, focus minutes from saved sessions
- * (by endedAt fallback startedAt). The period is purely a *time window*; the
- * caller passes every task it wants counted, regardless of a task's own
- * daily/weekly/monthly bucket. Spans every period from the earliest event up to
- * the current period, capped at MAX_PERIODS. Returns points newest-first.
+ * Aggregate every task into the chosen historical periods — "planned" and
+ * "completed" from each occurrence's *scheduled day* (daily `day`, weekly
+ * `weekStart`, monthly 1st of `monthKey`), focus minutes from saved sessions
+ * (by endedAt fallback startedAt). Every occurrence counts exactly once, on the
+ * same day the dashboard and task lists show it. Spans every period from the
+ * earliest event up to the current period, capped at MAX_PERIODS. Returns
+ * points newest-first.
  */
 export function buildPeriodSet(
   period: AnalyticsPeriod,
@@ -347,8 +383,8 @@ function shiftBack(start: number, period: AnalyticsPeriod, count: number): numbe
 }
 
 function prevPeriod(period: AnalyticsPeriod, start: number): number {
-  if (period === "daily") return start - DAY;
-  if (period === "weekly") return start - 7 * DAY;
+  if (period === "daily") return addDaysTs(start, -1);
+  if (period === "weekly") return addDaysTs(start, -7);
   const d = new Date(start);
   return new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
 }
