@@ -6,8 +6,6 @@ import { addDaysKey, dayKey, startOfDay, parseDayKey, startOfWeek, startOfMonth,
 
 const NOW = Date.now();
 const TODAY = dayKey(new Date(NOW));
-const MONDAY = startOfWeek(new Date(NOW));
-const m = (offset: number) => dayKey(new Date(MONDAY + offset * 86400000));
 
 function noonOf(key: string): number {
   const [y, mo, d] = key.split("-").map(Number);
@@ -79,10 +77,12 @@ describe("analytics occurrence counting", () => {
   });
 
   it("credits a future-scheduled task to its scheduled day, not its creation day", () => {
-    const tasks = [task({ id: "f", day: m(2), createdAt: noonOf(m(0)) })];
-    const week = buildWeekDays(0, tasks, [], NOW);
-    const monday = week.points.find((p) => p.start === dayStartOf(m(0)));
-    const wednesday = week.points.find((p) => p.start === dayStartOf(m(2)));
+    const pastMonday = startOfWeek(new Date(NOW - 14 * 86400000));
+    const weekKey = (offset: number) => dayKey(new Date(pastMonday + offset * 86400000));
+    const tasks = [task({ id: "f", day: weekKey(2), createdAt: pastMonday + 12 * 3600000 })];
+    const week = buildWeekDays(-2, tasks, [], NOW);
+    const monday = week.points.find((p) => p.start === dayStartOf(weekKey(0)));
+    const wednesday = week.points.find((p) => p.start === dayStartOf(weekKey(2)));
     expect(monday?.planned).toBe(0);
     expect(wednesday?.planned).toBe(1);
   });
@@ -109,6 +109,23 @@ describe("analytics occurrence counting", () => {
     const monthlySet = buildPeriodSet("monthly", [monthly, dailyOn1st], [], NOW);
     const pastMonthPoint = monthlySet.points.find((p) => p.start === pastMonthStart);
     expect(pastMonthPoint?.planned).toBe(2); // both anchored to the 1st of that month
+  });
+
+  it("does not plot days after `now` as 0% — they stay gaps", () => {
+    // A Wednesday noon two weeks ago: Friday of that week is inside the chart
+    // but still in the future relative to `now` (today-Sunday would vacuously
+    // have no future days left in its week).
+    const pastWednesday = startOfWeek(new Date(NOW - 14 * 86400000)) + 2 * 86400000 + 12 * 3600000;
+    const keyOf = (offset: number) => dayKey(new Date(startOfWeek(new Date(pastWednesday)) + offset * 86400000));
+    const tasks = [task({ id: "fu", day: keyOf(4), createdAt: pastWednesday })];
+    const week = buildWeekDays(0, tasks, [], pastWednesday);
+    const wednesdayStart = dayStartOf(keyOf(2));
+    const futurePoints = week.points.filter((p) => p.start > wednesdayStart);
+    expect(futurePoints.length).toBeGreaterThan(0);
+    for (const p of futurePoints) {
+      expect(p.planned).toBe(0);
+      expect(p.hasData).toBe(false);
+    }
   });
 
   it("keeps focus minutes bucketed by session end time", () => {

@@ -73,14 +73,19 @@ function scheduledDayStart(t: Task): number | null {
   return t.day ? startOfDay(parseDayKey(t.day)) : null;
 }
 
-/** Buckets every occurrence/session into day-start keys. */
+/** Buckets every occurrence/session into day-start keys. Days after `now` are
+ *  not history yet — counting their plan made the current week's trend dive to
+ *  0% into the future (gaps are the intended read for days that haven't
+ *  happened). */
 function bucketByDay(
   tasks: Task[],
-  sessions: WorkSession[]
+  sessions: WorkSession[],
+  now: number
 ): { planned: Map<number, number>; completed: Map<number, number>; focus: Map<number, number> } {
   const planned = new Map<number, number>();
   const completed = new Map<number, number>();
   const focus = new Map<number, number>();
+  const todayStart = startOfDay(new Date(now));
 
   const touch = (map: Map<number, number>, dayStart: number, delta: number) => {
     map.set(dayStart, (map.get(dayStart) ?? 0) + delta);
@@ -88,7 +93,7 @@ function bucketByDay(
 
   for (const t of tasks) {
     const dayStart = scheduledDayStart(t);
-    if (dayStart === null) continue;
+    if (dayStart === null || dayStart > todayStart) continue;
     touch(planned, dayStart, 1);
     if (t.status === "done") touch(completed, dayStart, 1);
   }
@@ -125,7 +130,7 @@ export function buildWeekDays(
   const monday = startOfWeek(new Date(addDaysTs(now, weekOffset * 7)));
   const sunday = addDaysTs(monday, 6);
 
-  const { planned, completed, focus } = bucketByDay(tasks, sessions);
+  const { planned, completed, focus } = bucketByDay(tasks, sessions, now);
 
   const points: PeriodPoint[] = [];
   for (let i = 0; i < 7; i++) {
@@ -175,7 +180,7 @@ export function buildMonthWeeks(
   const monthStartDate = new Date(first);
   const nextMonth = new Date(monthStartDate.getFullYear(), monthStartDate.getMonth() + 1, 1).getTime();
 
-  const { planned, completed, focus } = bucketByDay(tasks, sessions);
+  const { planned, completed, focus } = bucketByDay(tasks, sessions, now);
 
   const points: PeriodPoint[] = [];
   const firstMonday = startOfWeek(new Date(first));
@@ -243,11 +248,13 @@ function bucketStart(period: AnalyticsPeriod, ts: number): number {
   return startOfMonth(new Date(ts));
 }
 
-/** Bucket every task and session into period-sized counters. */
+/** Bucket every occurrence/session into period-sized counters, counting only
+ *  days up to and including `now`. */
 function bucketByPeriod(
   period: AnalyticsPeriod,
   tasks: Task[],
-  sessions: WorkSession[]
+  sessions: WorkSession[],
+  now: number
 ): {
   planned: Map<number, number>;
   completed: Map<number, number>;
@@ -258,6 +265,7 @@ function bucketByPeriod(
   const completed = new Map<number, number>();
   const focus = new Map<number, number>();
   let minStart: number | null = null;
+  const todayStart = startOfDay(new Date(now));
 
   const touch = (map: Map<number, number>, start: number, delta: number) => {
     map.set(start, (map.get(start) ?? 0) + delta);
@@ -266,7 +274,7 @@ function bucketByPeriod(
 
   for (const t of tasks) {
     const dayStart = scheduledDayStart(t);
-    if (dayStart === null) continue;
+    if (dayStart === null || dayStart > todayStart) continue;
     touch(planned, bucketStart(period, dayStart), 1);
     if (t.status === "done") touch(completed, bucketStart(period, dayStart), 1);
   }
@@ -342,7 +350,7 @@ export function buildPeriodSet(
   sessions: WorkSession[],
   now: number = Date.now()
 ): PeriodSet {
-  const buckets = bucketByPeriod(period, tasks, sessions);
+  const buckets = bucketByPeriod(period, tasks, sessions, now);
   const { planned, completed, focus, minStart } = buckets;
 
   const nowStart = bucketStart(period, now);
