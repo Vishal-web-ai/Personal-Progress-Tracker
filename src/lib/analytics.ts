@@ -95,7 +95,8 @@ function bucketByDay(
     const dayStart = scheduledDayStart(t);
     if (dayStart === null || dayStart > todayStart) continue;
     touch(planned, dayStart, 1);
-    if (t.status === "done") touch(completed, dayStart, 1);
+    // Count completions from both live done tasks AND archived tasks (historical rollover records)
+    if (t.status === "done" || t.archived === true) touch(completed, dayStart, 1);
   }
 
   for (const s of sessions) {
@@ -276,7 +277,8 @@ function bucketByPeriod(
     const dayStart = scheduledDayStart(t);
     if (dayStart === null || dayStart > todayStart) continue;
     touch(planned, bucketStart(period, dayStart), 1);
-    if (t.status === "done") touch(completed, bucketStart(period, dayStart), 1);
+    // Count completions from both live done tasks AND archived tasks (historical rollover records)
+    if (t.status === "done" || t.archived === true) touch(completed, bucketStart(period, dayStart), 1);
   }
 
   for (const s of sessions) {

@@ -21,9 +21,6 @@ const DOT_R = 4;
 const DOT_ACTIVE_R = 6;
 
 function metricValue(p: PeriodPoint, metric: TrendMetric): number {
-  // A day can carry data (focus time logged) with nothing planned, so pct is
-  // null. Coercing that to 0 drew a real-looking 0% dip for a day the user
-  // actually worked; it stays a gap instead.
   if (metric === "pct") return p.pct ?? 0;
   return p.completed;
 }
@@ -45,38 +42,6 @@ function formatMetric(point: PeriodPoint, metric: TrendMetric): string {
 function formatAxisValue(value: number, metric: TrendMetric): string {
   if (metric === "pct") return `${Math.round(value)}%`;
   return `${Math.round(value)}`;
-}
-
-/**
- * Index runs of consecutive data-bearing points. Empty days (rest days, days
- * before you started, days still ahead in the current week) are *not* drawn —
- * connecting straight through them would invent values, and plotting them as 0%
- * made the line dive to the floor every time you took a day off, which read as
- * "my history reset".
- */
-function splitIntoSegments(points: PeriodPoint[], metric: TrendMetric): number[][] {
-  const segments: number[][] = [];
-  let run: number[] = [];
-  points.forEach((p, i) => {
-    if (isPlottable(p, metric)) {
-      run.push(i);
-    } else if (run.length > 0) {
-      segments.push(run);
-      run = [];
-    }
-  });
-  if (run.length > 0) segments.push(run);
-  return segments;
-}
-
-/**
- * A single data point still has to read as a line, not a stray dot. Draw it as a
- * stem rising from the 0% baseline to the point's value, so one active day looks
- * like a lollipop rather than a horizontal line sitting at that day's rate —
- * which read as if the entire week had been spent at 50%.
- */
-function soloSegment(pt: [number, number], baselineY: number): [number, number][] {
-  return [[pt[0], baselineY], pt];
 }
 
 /**
@@ -109,6 +74,7 @@ function smoothLine(points: [number, number][], tension = 0.5): string {
 /**
  * Progressive line chart for the productivity trend. The line draws left-to-right
  * (stroke-dash animation) each time `animateKey` changes, with an area fill.
+ * Shows all 7 days Mon-Sun with a continuous line, markers at each data point.
  */
 export function CompletionTrendChart({
   points,
@@ -123,20 +89,17 @@ export function CompletionTrendChart({
   const [pinned, setPinned] = useState<number | null>(null);
 
   const data = useMemo(() => points, [points]);
-  // Empty days are excluded from the scale too, so a gap doesn't drag the
-  // axis down to 0. If literally nothing has data we still need a sane range.
-  const plotData = useMemo(() => data.filter((p) => isPlottable(p, metric)), [data, metric]);
-  const values = useMemo(() => plotData.map((p) => metricValue(p, metric)), [plotData, metric]);
-
-  // Fixed 0-100% scale for completion rate, auto-scale for other metrics
+  
+  // For line chart: show all 7 days, use actual values (0 for no-data days)
+  // This creates a continuous Mon-Sun line instead of fragmented segments
   const isPct = metric === "pct";
-  const maxVal = isPct ? 100 : Math.max(1, ...values);
-  const minVal = isPct ? 0 : Math.min(0, ...values);
+  const maxVal = isPct ? 100 : Math.max(1, ...data.map((p) => metricValue(p, metric)));
+  const minVal = isPct ? 0 : Math.min(0, ...data.map((p) => metricValue(p, metric)));
 
   const innerW = Math.max(0, width - PAD.left - PAD.right);
   const innerH = height - PAD.top - PAD.bottom;
-  // A lone point would divide by zero here; give it a sensible hit box.
   const stepW = data.length > 1 ? innerW / (data.length - 1) : innerW;
+  
   const xFor = useCallback(
     (i: number) => (data.length <= 1 ? PAD.left : PAD.left + (i / (data.length - 1)) * innerW),
     [data.length, innerW]
@@ -146,41 +109,18 @@ export function CompletionTrendChart({
     [innerH, minVal, maxVal]
   );
 
-  // X positions stay pinned to the full timeline so a gap keeps its true width;
-  // only the drawn segments skip the empty days. A run of one is drawn as a stem
-  // from the baseline so a single active day still reads as a line.
-  const segments = useMemo(
-    () =>
-      splitIntoSegments(data, metric).map((run) => {
-        const pts = run.map(
-          (i) => [xFor(i), yFor(metricValue(data[i], metric))] as [number, number]
-        );
-        return pts.length === 1 ? soloSegment(pts[0], PAD.top + innerH) : pts;
-      }),
-    [data, metric, xFor, yFor, innerH]
+  // Build smooth line through ALL 7 days (using actual values, 0 for no-data)
+  const allPoints = useMemo(
+    () => data.map((p, i) => [xFor(i), yFor(metricValue(p, metric))] as [number, number]),
+    [data, metric, xFor, yFor]
   );
-
-  // Segments are drawn exactly where the data is. The chart used to splice two
-  // synthetic points onto the ends of a lone segment — to "reach the chart
-  // edges" — but xFor already maps the first and last index onto those edges, so
-  // that only ever duplicated the endpoints. With a single active day it turned
-  // one real point into a flat line across the whole chart at that day's rate.
-  // Gaps stay gaps; a lone point is widened only to its own slot.
-  const areaPaths = useMemo(
-    () =>
-      segments
-        .filter((seg) => seg.length > 1)
-        .map(
-          (seg) =>
-            `${smoothLine(seg)} L${seg[seg.length - 1][0]},${PAD.top + innerH} L${seg[0][0]},${PAD.top + innerH} Z`
-        ),
-    [segments, innerH]
-  );
-
-  const linePaths = useMemo(
-    () => segments.filter((seg) => seg.length > 1).map((seg) => smoothLine(seg)),
-    [segments]
-  );
+  
+  const linePath = smoothLine(allPoints);
+  
+  // Area path: line + bottom edge + back to start
+  const areaPath = linePath
+    ? `${linePath} L${allPoints[allPoints.length - 1][0]},${PAD.top + innerH} L${allPoints[0][0]},${PAD.top + innerH} Z`
+    : "";
 
   const tooltipIndex = pinned ?? hover;
   const isActive = (i: number) => tooltipIndex === i;
@@ -231,77 +171,64 @@ export function CompletionTrendChart({
             );
           })}
 
-          {areaPaths.map((d, i) => (
-            <path key={`area-${animateKey}-${i}`} d={d} fill="var(--accent)" opacity={0.08} />
+          {/* Vertical gridlines for each day */}
+          {data.map((_, i) => (
+            <line
+              key={`vgrid-${i}`}
+              x1={xFor(i)}
+              x2={xFor(i)}
+              y1={PAD.top}
+              y2={PAD.top + innerH}
+              stroke="var(--border-soft)"
+              strokeWidth={1}
+              strokeDasharray="2 4"
+              opacity={0.5}
+            />
           ))}
-          {linePaths.map((d, i) => (
+
+          {/* Area fill */}
+          {areaPath && (
             <path
-              key={`${animateKey}-line-${i}`}
-              d={d}
+              key={`area-${animateKey}`}
+              d={areaPath}
+              fill="var(--accent)"
+              opacity={0.08}
+            />
+          )}
+
+          {/* Line */}
+          {linePath && (
+            <path
+              key={`${animateKey}-line`}
+              d={linePath}
               fill="none"
               stroke="var(--accent)"
               strokeWidth={2.5}
               strokeLinecap="round"
+              strokeLinejoin="round"
               className="chart-draw"
               style={{
                 animationDelay: `${baseDelay}ms`,
               }}
             />
+          )}
+
+          {/* X-axis labels (Mon-Sun) */}
+          {data.map((p, i) => (
+            <text
+              key={`label-${i}`}
+              x={xFor(i)}
+              y={height - 4}
+              textAnchor="middle"
+              fontSize={10}
+              fill="var(--text-muted)"
+            >
+              {p.label}
+            </text>
           ))}
 
-          {(() => {
-            // Candidate labels follow the existing every-Nth rule; then any
-            // label that would physically overlap the previous one is dropped.
-            // The collision test is a no-op when there is room, so short labels
-            // like "Mon" are never affected. The current period always shows:
-            // if it collides it evicts its left neighbour instead of vanishing.
-            const showAll = data.length <= 7;
-            const interval = showAll ? 1 : Math.max(2, Math.floor(data.length / 5));
-            const last = data.length - 1;
-            const out: { key: number; right: number; node: React.ReactNode }[] = [];
-            data.forEach((p, i) => {
-              if (i % interval !== 0 && i !== last) return;
-               const labelText = p.label;
-              const x = xFor(i);
-              // Inter at 10px; generous estimate so we skip early rather than clip.
-              const w = labelText.length * 6.2;
-              // Centre every label except the outer two, which anchor inward.
-              // A centred first/last label spills past the plot edge and the
-              // SVG viewport clips it, chopping the date in half.
-              const isFirst = i === 0;
-              const isLast = i === last;
-              const anchor = isFirst ? "start" : isLast ? "end" : "middle";
-              const left = isFirst ? x : isLast ? x - w : x - w / 2;
-              const right = left + w;
-              // A date cut off at the edge is worse than one dropped label.
-              if (right > width - PAD.right + 0.5 && !isLast) return;
-              if (out.length > 0 && left < out[out.length - 1].right) {
-                // Only the current period is allowed to displace a neighbour;
-                // everything else just yields.
-                if (!isLast) return;
-                out.pop();
-              }
-              out.push({
-                key: i,
-                right,
-                node: (
-                  <text
-                    key={i}
-                    x={x}
-                    y={height - 4}
-                    textAnchor={anchor}
-                    fontSize={10}
-                    fill="var(--text-muted)"
-                  >
-                    {labelText}
-                  </text>
-                ),
-              });
-            });
-            return out.map((o) => o.node);
-          })()}
-
-          {data.map((p, i) => (
+          {/* Hit areas for hover/tooltip */}
+          {data.map((_, i) => (
             <rect
               key={`h-${i}`}
               x={xFor(i) - stepW / 2}
@@ -316,6 +243,7 @@ export function CompletionTrendChart({
             />
           ))}
 
+          {/* Data point markers */}
           {data.map((p, i) =>
             isPlottable(p, metric) ? (
               <circle
@@ -327,12 +255,34 @@ export function CompletionTrendChart({
                 stroke="var(--accent)"
                 strokeWidth={isActive(i) ? 2.5 : 1.5}
               />
-            ) : null
+            ) : (
+              // Show hollow marker for days with no data
+              <circle
+                key={`dot-empty-${i}`}
+                cx={xFor(i)}
+                cy={yFor(0)}
+                r={DOT_R}
+                fill="var(--surface)"
+                stroke="var(--border-soft)"
+                strokeWidth={1.5}
+                strokeDasharray="3 3"
+                opacity={0.5}
+              />
+            )
           )}
 
+          {/* Tooltip */}
           {tooltipIndex !== null && active && (
             <g pointerEvents="none">
-              <line x1={xFor(tooltipIndex)} x2={xFor(tooltipIndex)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--border)" strokeWidth={1} strokeDasharray="3 3" />
+              <line
+                x1={xFor(tooltipIndex)}
+                x2={xFor(tooltipIndex)}
+                y1={PAD.top}
+                y2={PAD.top + innerH}
+                stroke="var(--border)"
+                strokeWidth={1}
+                strokeDasharray="3 3"
+              />
               {(() => {
                 const w = 180;
                 const bx = Math.min(width - w - 4, Math.max(4, xFor(tooltipIndex) - w / 2));
